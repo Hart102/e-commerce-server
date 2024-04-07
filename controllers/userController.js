@@ -14,8 +14,8 @@ const register = (req, res) => {
     "firstname",
     "lastname",
     "email",
-    "phone",
-    "address",
+    // "phone",
+    // "address",
     "password",
   ];
 
@@ -37,13 +37,11 @@ const register = (req, res) => {
       }
 
       connection.query(
-        "INSERT INTO users (firstname, lastname, email, phone, address, password) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO users (firstname, lastname, email, password) VALUES (?, ?, ?, ?)",
         [
           req.body.firstname,
           req.body.lastname,
           req.body.email,
-          req.body.phone,
-          req.body.address,
           req.body.password,
         ],
         (err, result) => {
