@@ -3,6 +3,7 @@ const PORT = 3000;
 const session = require("express-session");
 const cors = require("cors");
 const UUID = require("uuid");
+const bodyParser = require("body-parser");
 // ROUTES
 const userRoutes = require("./routes/userRoutes");
 const productRoutes = require("./routes/products");
@@ -11,7 +12,8 @@ const productRoutes = require("./routes/products");
 const app = express();
 app.use(express.json());
 app.use(cors({ origin: "*" }));
-app.use(express.urlencoded({ extended: false }));
+app.use(bodyParser.urlencoded({ extended: false }));
+app.use(bodyParser.json());
 app.use(
   session({
     name: "online_store",

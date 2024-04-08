@@ -20,7 +20,7 @@ const upload = multer.memoryStorage({
     fileSize: 1 * 1024 * 1024, // Limit file size to 5 MB
   },
 });
-const fileuploader = multer({ storage: upload }).single("file");
+const fileuploader = multer({ storage: upload }).array("file", 4);
 
 const generateImageId = (imgObject) => {
   if (imgObject && imgObject.originalname) {

@@ -14,6 +14,7 @@ const register = (req, res) => {
     "firstname",
     "lastname",
     "email",
+    "status",
     // "phone",
     // "address",
     "password",
@@ -35,7 +36,6 @@ const register = (req, res) => {
       if (emailExists) {
         return res.json({ error: "Email already exists" });
       }
-
       connection.query(
         "INSERT INTO users (firstname, lastname, email, password) VALUES (?, ?, ?, ?)",
         [
@@ -48,7 +48,6 @@ const register = (req, res) => {
           if (err) {
             return res.json({ error: "Internal server error" });
           }
-
           res.json({
             message: "User registered successfully",
             userId: result.insertId,

@@ -11,36 +11,55 @@ const checkEmptyKeys = (object) => {
 
 const addProduct = async (req, res) => {
   try {
-    if (req.session.user == undefined)
+    if (!req.params) {
       return res.json({ error: "UnAthorised access!" });
-
-    if (req.file == undefined) return res.json({ error: "No file uploaded" });
-
-    if (!req.file.originalname.match(/\.(jpg|jpeg|png)$/i)) {
-      return res.json({
-        error: "Only JPG, JPEG, or PNG files are allowed",
-      });
     }
+
+    if (req.files == undefined) return res.json({ error: "No file uploaded" });
+
+    for (let i = 0; i < req.files.length; ) {
+      if (!req.files[i].originalname.match(/\.(jpg|jpeg|png)$/i)) {
+        return res.json({
+          error: "Only JPG, JPEG, or PNG files are allowed",
+        });
+      }
+      i++;
+    }
+
     if (checkEmptyKeys(req.body)) {
       return res.json({ error: "All fields are required!" });
     }
 
-    const file = await storage.createFile(
-      bucketId,
-      generateImageId(req.file),
-      appWrite.InputFile.fromBuffer(req.file.buffer, req.file.originalname)
-    );
+    const uploadFiles = async () => {
+      const files = [];
+      for (let i = 0; i < req.files.length; ) {
+        const file = await storage.createFile(
+          bucketId,
+          generateImageId(req.files[i]),
+          appWrite.InputFile.fromBuffer(
+            req.files[i].buffer,
+            req.files[i].originalname
+          )
+        );
 
+        files.push(file.$id);
+        i++;
+        if (files.length == req.files.length) return files;
+      }
+    };
+
+    const uploadImages = await uploadFiles();
     connection.query(
       "INSERT INTO products SET ?",
       {
-        name: req.body.name,
-        price: Number(req.body.price),
-        description: req.body.description,
-        category: req.body.category,
+        name: req.body.name.toLowerCase(),
+        price: parseFloat(req.body.price),
+        description: req.body.description.toLowerCase(),
+        category: req.body.category.toLowerCase(),
         quantity: req.body.quantity,
-        imageId: file.$id,
-        user_id: req.session.user.id,
+        status: req.body.status,
+        imageId: JSON.stringify(uploadImages),
+        user_id: req.params.id,
       },
       (error, results) => {
         if (error) {
@@ -70,7 +89,10 @@ const getProductById = (req, res) => {
             error: "Something went wrong. Please try again.",
           });
         }
-        if (result.length > 0) return res.json({ product: result[0] });
+        if (result.length > 0) {
+          result[0] = { ...result[0], imageId: JSON.parse(result[0].imageId) };
+          return res.json({ product: result[0] });
+        }
         res.json({ error: "Product not found!" });
       }
     );
