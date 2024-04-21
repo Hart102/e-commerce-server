@@ -11,7 +11,7 @@ const checkEmptyKeys = (object) => {
 
 const addProduct = async (req, res) => {
   try {
-    if (!req.params) {
+    if (req.params == null) {
       return res.json({ error: "UnAthorised access!" });
     }
 
@@ -26,6 +26,8 @@ const addProduct = async (req, res) => {
       i++;
     }
 
+    const brand = req.body.brand;
+    delete req.body.brand;
     if (checkEmptyKeys(req.body)) {
       return res.json({ error: "All fields are required!" });
     }
@@ -63,6 +65,7 @@ const addProduct = async (req, res) => {
       },
       (error, results) => {
         if (error) {
+          console.log(error);
           return res.json({
             error: "Something went wrong. Please try again.",
           });
@@ -73,6 +76,38 @@ const addProduct = async (req, res) => {
         });
       }
     );
+  } catch (error) {
+    res.json({ error: "Internal server error!" });
+  }
+};
+
+const getAllProducts = (req, res) => {
+  try {
+    const sql = "SELECT * FROM products ORDER BY createdAt DESC";
+    connection.query(sql, (error, result) => {
+      if (error) {
+        return res.json({
+          error: "Something went wrong. Please try again.",
+        });
+      }
+
+      const parseProductImages = () => {
+        if (result.length > 0) {
+          for (let i = 0; i < result.length; ) {
+            result[i] = {
+              ...result[i],
+              imageId: JSON.parse(result[i].imageId),
+            };
+            i++;
+            if (i == result.length) return result;
+          }
+        } else {
+          return { products: [] };
+        }
+      };
+
+      res.json(parseProductImages());
+    });
   } catch (error) {
     res.json({ error: "Internal server error!" });
   }
@@ -100,4 +135,89 @@ const getProductById = (req, res) => {
     res.json({ error: "Internal server error!" });
   }
 };
-module.exports = { addProduct, getProductById };
+
+const getByCategory = (req, res) => {
+  if (req.params.category) {
+    try {
+      const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
+      connection.query(sql, [req.params.category], (error, result) => {
+        if (error) {
+          return res.json({ error: "Something went wrong. Please try again." });
+        }
+
+        const parseProductImages = () => {
+          if (result.length > 0) {
+            for (let i = 0; i < result.length; ) {
+              result[i] = {
+                ...result[i],
+                imageId: JSON.parse(result[i].imageId),
+              };
+              i++;
+              if (i == result.length) return result;
+            }
+          } else {
+            return { products: [] };
+          }
+        };
+
+        res.json({ products: parseProductImages() });
+      });
+    } catch (error) {
+      res.json({ error: "Internal server error!" });
+    }
+  }
+};
+
+const deleteProduct = (req, res) => {
+  try {
+    if (req.params) {
+      connection.query(
+        "SELECT id, imageId FROM products WHERE id = ?",
+        [req.params.id],
+        (error, result) => {
+          if (error) {
+            console.log(error);
+            return res.json({
+              error: "Something went wrong. Please try again.",
+            });
+          }
+
+          if (result.length > 0) {
+            result[0] = {
+              ...result[0],
+              imageId: JSON.parse(result[0].imageId),
+            };
+            result[0].imageId.forEach((id) => storage.deleteFile(bucketId, id));
+
+            connection.query(
+              "DELETE FROM `products` WHERE id=?",
+              [req.params.id],
+              (error, result) => {
+                if (error) {
+                  console.log(error);
+                  return res.json({
+                    error: "Something went wrong. Please try again.",
+                  });
+                }
+
+                console.log(result);
+                res.json({ message: "Product deleted" });
+              }
+            );
+          }
+        }
+      );
+    }
+  } catch (error) {
+    console.log(error.message);
+    res.json({ error: "Internal server error!" });
+  }
+};
+
+module.exports = {
+  getAllProducts,
+  addProduct,
+  getProductById,
+  getByCategory,
+  deleteProduct,
+};
