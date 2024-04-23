@@ -17,7 +17,7 @@ router.get("/:id", fileuploader, getProductById);
 router.get("/category/:category", fileuploader, getByCategory);
 router.delete("/delete/:id", deleteProduct);
 router.post("/cart", addToCart);
-router.post("/cart/:userId", getCartItems);
+router.get("/cart/:userId", getCartItems);
 
 
 

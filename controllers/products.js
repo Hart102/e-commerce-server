@@ -9,6 +9,21 @@ const checkEmptyKeys = (object) => {
   return false;
 };
 
+const parseProductImages = (images) => {
+  if (images.length > 0) {
+    for (let i = 0; i < images.length; ) {
+      images[i] = {
+        ...images[i],
+        imageId: JSON.parse(images[i].imageId),
+      };
+      i++;
+      if (i == images.length) return images;
+    }
+  } else {
+    return { products: [] };
+  }
+};
+
 const addProduct = async (req, res) => {
   try {
     if (req.params.id == "null") {
@@ -148,23 +163,8 @@ const getByCategory = (req, res) => {
         if (error) {
           return res.json({ error: "Something went wrong. Please try again." });
         }
-
-        const parseProductImages = () => {
-          if (result.length > 0) {
-            for (let i = 0; i < result.length; ) {
-              result[i] = {
-                ...result[i],
-                imageId: JSON.parse(result[i].imageId),
-              };
-              i++;
-              if (i == result.length) return result;
-            }
-          } else {
-            return { products: [] };
-          }
-        };
-
-        res.json({ products: parseProductImages() });
+        const parsedImages = parseProductImages(result);
+        res.json({ products: parsedImages });
       });
     } catch (error) {
       res.json({ error: "Internal server error!" });
@@ -278,19 +278,23 @@ const addToCart = (req, res) => {
 
 const getCartItems = (req, res) => {
   try {
-    connection.query(
-      "SELECT * FROM cart WHERE userId = ?",
-      [req.body.params.userId],
-      (error, result) => {
+    if (req.params.userId) {
+      const sql =
+        "SELECT cart.productId, products.* FROM cart INNER JOIN products ON cart.productId = products.id WHERE cart.userId = ?";
+
+      connection.query(sql, [req.params.userId], (error, result) => {
         if (error) {
-          return res.json({ error: "something went wrong please try again." });
+          console.log(error);
+          return res.json({
+            error: "something went wrong please try again.",
+          });
         }
 
+        console.log(result);
         res.json(result);
-      }
-    );
+      });
+    }
   } catch (error) {
-    console.log(error.message);
     res.json({ error: "internal server error" });
   }
 };
