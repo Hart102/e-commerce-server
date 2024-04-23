@@ -8,6 +8,7 @@ const {
   getByCategory,
   deleteProduct,
   addToCart,
+  getCartItems,
 } = require("../controllers/products");
 
 router.post("/addproduct/:id", fileuploader, addProduct);
@@ -16,6 +17,8 @@ router.get("/:id", fileuploader, getProductById);
 router.get("/category/:category", fileuploader, getByCategory);
 router.delete("/delete/:id", deleteProduct);
 router.post("/cart", addToCart);
+router.post("/cart/:userId", getCartItems);
+
 
 
 
