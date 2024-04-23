@@ -253,7 +253,6 @@ const addToCart = (req, res) => {
                   error: "something went wrong. Please try again.",
                 });
               }
-
               // RETURN TOTAL NUMBER OF ITEMS USER HAS IN CART
               connection.query(
                 countCartItems,
@@ -273,7 +272,26 @@ const addToCart = (req, res) => {
       });
     }
   } catch (error) {
-    res.json({ error: "Internal server error" });
+    res.json({ error: "internal server error" });
+  }
+};
+
+const getCartItems = (req, res) => {
+  try {
+    connection.query(
+      "SELECT * FROM cart WHERE userId = ?",
+      [req.body.params.userId],
+      (error, result) => {
+        if (error) {
+          return res.json({ error: "something went wrong please try again." });
+        }
+
+        res.json(result);
+      }
+    );
+  } catch (error) {
+    console.log(error.message);
+    res.json({ error: "internal server error" });
   }
 };
 
@@ -284,4 +302,5 @@ module.exports = {
   getByCategory,
   deleteProduct,
   addToCart,
+  getCartItems,
 };
