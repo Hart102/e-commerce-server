@@ -1,6 +1,6 @@
 const appWrite = require("node-appwrite");
 const connection = require("../DbConnect");
-const { bucketId, generateImageId, storage } = require("../appWrite/index");
+const { bucketId, storage } = require("../appWrite/index");
 
 const checkEmptyKeys = (object) => {
   for (let key in object) {
@@ -288,7 +288,6 @@ const getCartItems = (req, res) => {
             error: "something went wrong please try again.",
           });
         }
-
         const products = parseProductImages(result);
         res.json(products);
       });

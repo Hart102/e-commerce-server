@@ -19,27 +19,8 @@ const upload = multer.memoryStorage({
   limits: {
     fileSize: 1 * 1024 * 1024, // Limit file size to 5 MB
   },
-  filename: (req, file, callback) => {
-    // Extract the file extension
-    const fileExt = file.originalname.split(".").pop();
-    // Generate a unique filename
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    const fileName = `${uniqueSuffix}.${fileExt}`;
-    // Pass the generated filename to the callback
-    callback(null, fileName);
-  },
 });
 const fileuploader = multer({ storage: upload }).array("file", 4);
 
-const generateImageId = (imgObject) => {
-  const originalname = imgObject?.originalname?.replace(/[^a-zA-Z]/g, "") || "";
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 8); // Generate random string
-  const uniqueName = `${originalname}-${timestamp}-${randomString}`; // Combine original name, timestamp, and random string
-  const ID = uniqueName.slice(0, 20); // Truncate if necessary to ensure equal length
-  return ID;
-};
 
-
-
-module.exports = { storage, fileuploader, bucketId, generateImageId };
+module.exports = { storage, fileuploader, bucketId };
