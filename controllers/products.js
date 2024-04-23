@@ -9,15 +9,15 @@ const checkEmptyKeys = (object) => {
   return false;
 };
 
-const parseProductImages = (images) => {
-  if (images.length > 0) {
-    for (let i = 0; i < images.length; ) {
-      images[i] = {
-        ...images[i],
-        imageId: JSON.parse(images[i].imageId),
+const parseProductImages = (products) => {
+  if (products.length > 0) {
+    for (let i = 0; i < products.length; ) {
+      products[i] = {
+        ...products[i],
+        imageId: JSON.parse(products[i].imageId),
       };
       i++;
-      if (i == images.length) return images;
+      if (i == products.length) return products;
     }
   } else {
     return { products: [] };
@@ -163,8 +163,8 @@ const getByCategory = (req, res) => {
         if (error) {
           return res.json({ error: "Something went wrong. Please try again." });
         }
-        const parsedImages = parseProductImages(result);
-        res.json({ products: parsedImages });
+        const products = parseProductImages(result);
+        res.json(products);
       });
     } catch (error) {
       res.json({ error: "Internal server error!" });
@@ -284,14 +284,13 @@ const getCartItems = (req, res) => {
 
       connection.query(sql, [req.params.userId], (error, result) => {
         if (error) {
-          console.log(error);
           return res.json({
             error: "something went wrong please try again.",
           });
         }
 
-        console.log(result);
-        res.json(result);
+        const products = parseProductImages(result);
+        res.json(products);
       });
     }
   } catch (error) {
