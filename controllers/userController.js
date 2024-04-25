@@ -78,9 +78,7 @@ const login = (req, res) => {
         const token = jwt.sign(
           { id: result[0].id, email: result[0].email },
           "tokenabc",
-          {
-            expiresIn: "24h",
-          }
+          { expiresIn: "24h" }
         );
         res.json({ message: "Login successful", token });
       }
