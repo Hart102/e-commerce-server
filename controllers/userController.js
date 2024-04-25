@@ -1,4 +1,5 @@
 const connection = require("../DbConnect");
+const jwt = require("jsonwebtoken");
 
 const checkEmptyKeys = (object, keys) => {
   for (let key of keys) {
@@ -63,12 +64,9 @@ const login = (req, res) => {
     if (checkEmptyKeys(req.body, ["email", "password"])) {
       return res.json({ error: "All fields are required" });
     }
-
-    const { email, password } = req.body;
-
     connection.query(
       "SELECT * FROM users WHERE email = ? AND password = ?",
-      [email, password],
+      [req.body.email, req.body.password],
       (err, result) => {
         if (err) {
           return res.json({ error: "Internal server error" });
@@ -77,14 +75,17 @@ const login = (req, res) => {
         if (result.length === 0) {
           return res.json({ error: "User not found" });
         }
-
-        delete result[0].password;
-        req.session.user = result[0];
-        res.json({ message: "Login successful", user: result[0] });
+        const token = jwt.sign(
+          { id: result[0].id, email: result[0].email },
+          "tokenabc",
+          {
+            expiresIn: "24h",
+          }
+        );
+        res.json({ message: "Login successful", token });
       }
     );
   } catch (error) {
-    console.log(error.message);
     res.json({ error: "Internal server error" });
   }
 };

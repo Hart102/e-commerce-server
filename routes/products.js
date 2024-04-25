@@ -9,19 +9,16 @@ const {
   deleteProduct,
   addToCart,
   getCartItems,
+  removeFromCart,
 } = require("../controllers/products");
 
-router.post("/addproduct/:id", fileuploader, addProduct);
 router.get("/", getAllProducts);
-router.get("/:id", fileuploader, getProductById);
-router.get("/category/:category", fileuploader, getByCategory);
+router.post("/addproduct", fileuploader, addProduct);
+router.get("/getProductById/:id", getProductById);
+router.get("/category/:category", getByCategory);
 router.delete("/delete/:id", deleteProduct);
 router.post("/cart", addToCart);
-router.get("/cart/:userId", getCartItems);
-
-
-
-
-
+router.get("/cart/getCartItems", getCartItems);
+router.post("/cart/removeItem/:id", removeFromCart);
 
 module.exports = router;
