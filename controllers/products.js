@@ -2,28 +2,7 @@ const jwt = require("jsonwebtoken");
 const appWrite = require("node-appwrite");
 const connection = require("../DbConnect");
 const { bucketId, storage } = require("../appWrite/index");
-
-const checkEmptyKeys = (object) => {
-  for (let key in object) {
-    if (object[key] === "") return true;
-  }
-  return false;
-};
-
-const parseProductImages = (products) => {
-  if (products.length > 0) {
-    for (let i = 0; i < products.length; ) {
-      products[i] = {
-        ...products[i],
-        imageId: JSON.parse(products[i].imageId),
-      };
-      i++;
-      if (i == products.length) return products;
-    }
-  } else {
-    return { products: [] };
-  }
-};
+const { parseProductImages, checkEmptyKeys } = require("../lib/index");
 
 const addProduct = async (req, res) => {
   try {
@@ -231,6 +210,7 @@ const deleteProduct = (req, res) => {
   }
 };
 
+// THIS FUNCTION REQUIRES PRODUCT UNITS(QUANTITY) AND PRODUCT ID
 const addToCart = (req, res) => {
   try {
     const token = req.header("Authorization");
@@ -254,20 +234,14 @@ const addToCart = (req, res) => {
           const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE userId=?`;
           if (result.affectedRows > 0) {
             // RETURN TOTAL NUMBER OF ITEMS USER HAS IN CART
-            connection.query(
-              countCartItems,
-              [req.body.userId],
-              (error, result) => {
-                if (error) {
-                  console.log(error);
-
-                  return res.json({
-                    error: "something went wrong, please try again.",
-                  });
-                }
-                res.json({ response: result[0] });
+            connection.query(countCartItems, [user.id], (error, result) => {
+              if (error) {
+                return res.json({
+                  error: "something went wrong, please try again.",
+                });
               }
-            );
+              res.json({ total_items: result[0].total_items });
+            });
           } else {
             sql =
               "INSERT INTO cart (userId, demanded_unit, productId) VALUES (?, ?, ?)";
@@ -287,7 +261,7 @@ const addToCart = (req, res) => {
                       error: "something went wrong, please try again.",
                     });
                   }
-                  res.json({ response: result[0] });
+                  res.json({ total_items: result[0].total_items });
                 });
               }
             );
@@ -307,9 +281,8 @@ const getCartItems = (req, res) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
-
-      const sql =
-        "SELECT cart. id, demanded_unit, products. name, price, description, category, brand, imageId FROM cart INNER JOIN products ON cart.productId = products.id WHERE cart.userId = ?";
+      const sql = `SELECT cart. id, demanded_unit, products. name, price, description, category, brand, imageId FROM
+       cart INNER JOIN products ON cart.productId = products.id WHERE cart.userId = ?`;
 
       connection.query(sql, [user.id], (error, result) => {
         if (error) {
@@ -328,36 +301,34 @@ const getCartItems = (req, res) => {
 
 const removeFromCart = (req, res) => {
   try {
-    if (req.params.id) {
-      connection.query(
-        "DELETE FROM `cart` WHERE id = ?",
-        [req.params.id],
-        (error, response) => {
-          if (error) {
-            return res.json({
-              error: "something went wrong please try again.",
-            });
-          }
+    const token = req.header("Authorization");
+    jwt.verify(token, "tokenabc", (error, user) => {
+      if (error) {
+        return res.json({ error: "invalid authentication token!" });
+      }
 
-          const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE userId=?`;
-          connection.query(
-            countCartItems,
-            [req.body.userId],
-            (error, result) => {
-              if (error) {
-                return res.json({
-                  error: "something went wrong, please try again.",
-                });
-              }
-              res.json({
-                message: "item removed",
-                total_items: result[0].total_items,
+      if (req.params.id) {
+        connection.query(
+          "DELETE FROM `cart` WHERE id = ?",
+          [req.params.id],
+          (error) => {
+            if (error) {
+              res.json({ error: "something went wrong please try again." });
+            } else {
+              const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE userId=?`;
+              connection.query(countCartItems, [user.id], (error, result) => {
+                if (error) {
+                  return res.json({
+                    error: "something went wrong, please try again.",
+                  });
+                }
+                res.json({ total_items: result[0].total_items });
               });
             }
-          );
-        }
-      );
-    }
+          }
+        );
+      }
+    });
   } catch (error) {
     res.json({ error: "internal server error" });
   }
