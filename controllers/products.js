@@ -63,7 +63,6 @@ const addProduct = async (req, res) => {
           description: req.body.description.toLowerCase(),
           category: req.body.category.toLowerCase(),
           units: req.body.quantity,
-          brand: brand,
           status: req.body.status,
           imageId: JSON.stringify(uploadImages),
           user_id: user.id,
@@ -222,7 +221,7 @@ const addToCart = (req, res) => {
       if (req.body) {
         let sql = `UPDATE cart SET demanded_unit = demanded_unit + ${Number(
           req.body.units
-        )} WHERE userId = ${user.id} AND productId = ${req.body.productId}`;
+        )} WHERE user_id = ${user.id} AND productId = ${req.body.productId}`;
 
         connection.query(sql, (error, result) => {
           if (error) {
@@ -231,7 +230,7 @@ const addToCart = (req, res) => {
             });
           }
 
-          const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE userId=?`;
+          const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
           if (result.affectedRows > 0) {
             // RETURN TOTAL NUMBER OF ITEMS USER HAS IN CART
             connection.query(countCartItems, [user.id], (error, result) => {
@@ -244,7 +243,7 @@ const addToCart = (req, res) => {
             });
           } else {
             sql =
-              "INSERT INTO cart (userId, demanded_unit, productId) VALUES (?, ?, ?)";
+              "INSERT INTO cart (user_id, demanded_unit, productId) VALUES (?, ?, ?)";
             connection.query(
               sql,
               [user.id, req.body.units, req.body.productId],
@@ -257,6 +256,8 @@ const addToCart = (req, res) => {
                 // RETURN TOTAL NUMBER OF ITEMS USER HAS IN CART
                 connection.query(countCartItems, [user.id], (error, result) => {
                   if (error) {
+                    console.log(error);
+
                     return res.json({
                       error: "something went wrong, please try again.",
                     });
@@ -281,8 +282,8 @@ const getCartItems = (req, res) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
-      const sql = `SELECT cart. id, demanded_unit, products. name, price, description, category, brand, imageId FROM
-       cart INNER JOIN products ON cart.productId = products.id WHERE cart.userId = ?`;
+      const sql = `SELECT cart. id, demanded_unit, products. name, price, description, category, imageId FROM
+       cart INNER JOIN products ON cart.productId = products.id WHERE cart.user_id = ?`;
 
       connection.query(sql, [user.id], (error, result) => {
         if (error) {
@@ -315,7 +316,7 @@ const removeFromCart = (req, res) => {
             if (error) {
               res.json({ error: "something went wrong please try again." });
             } else {
-              const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE userId=?`;
+              const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
               connection.query(countCartItems, [user.id], (error, result) => {
                 if (error) {
                   return res.json({
