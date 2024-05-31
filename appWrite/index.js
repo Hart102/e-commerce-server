@@ -1,5 +1,7 @@
 const appwrite = require("node-appwrite");
 const multer = require("multer");
+const sharp = require("sharp");
+const fs = require("fs");
 
 const projectId = "660f30b6474fd486d62e";
 const bucketId = "660f31232cf0b6c64dfc";
