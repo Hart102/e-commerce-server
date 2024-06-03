@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { fileuploader } = require("../../appWrite/index");
+const { fileuploader } = require("../../config/appWrite/index");
 const {
   createProduct,
   getProductsByUserId,

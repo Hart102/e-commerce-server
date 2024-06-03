@@ -1,11 +1,13 @@
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const connection = require("../../DbConnect");
-const { paymentCardSchema } = require("../../schema/index");
+const connection = require("../../config/DbConnect");
+const { paymentCardSchema, OrderSchema } = require("../../schema/index");
+const { initializePayment } = require("../../config/acceptPayment");
 
 const addPaymentCard = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (err, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (err, user) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -13,27 +15,42 @@ const addPaymentCard = (req, res) => {
       if (error) {
         return res.json({ error: error.details[0].message });
       }
-      connection.query(
-        "INSERT INTO payment_cards SET?",
-        {
-          user_id: user.id,
-          card_number: value.card_number,
-          card_name: value.card_name,
-          expiry_date: value.expiry_date,
-          cvv: value.cvv,
-        },
-        (error, results) => {
-          if (error) {
-            return res.json({
-              error: "Something went wrong. Please try again.",
-            });
-          }
-          res.json({
-            message: "Payment card added successfully",
-            paymentCardId: results.insertId,
+      let sql =
+        "SELECT COUNT(*) AS total_address FROM payment_cards WHERE user_id = ?";
+
+      connection.query(sql, [user.id], (err, counts) => {
+        if (err) {
+          return res.json({
+            error: "Something went wrong, please try again.",
           });
         }
-      );
+        if (counts[0].total_address > 1) {
+          return res.json({
+            error: "User cannot have more than two payment cards",
+          });
+        }
+        connection.query(
+          "INSERT INTO payment_cards SET?",
+          {
+            user_id: user.id,
+            card_number: value.card_number,
+            card_name: value.card_name,
+            expiry_date: value.expiry_date,
+            cvv: value.cvv,
+          },
+          (error, results) => {
+            if (error) {
+              return res.json({
+                error: "Something went wrong. Please try again.",
+              });
+            }
+            res.json({
+              message: "Payment card added successfully",
+              paymentCardId: results.insertId,
+            });
+          }
+        );
+      });
     });
   } catch (error) {
     res.json({ error: "Internal server error!" });
@@ -43,7 +60,7 @@ const addPaymentCard = (req, res) => {
 const getPaymentCard = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (err, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (err, user) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -65,4 +82,56 @@ const getPaymentCard = (req, res) => {
   }
 };
 
-module.exports = { addPaymentCard, getPaymentCard };
+const AcceptPayment = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, async (err, user) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      const { error, value } = OrderSchema.validate(req.body);
+      if (error) {
+        return res.json({ error: error.details[0].message });
+      }
+      const amountInKobo = parseFloat(value.totalPrice);
+      const response = await initializePayment({
+        email: user.email,
+        amount: amountInKobo,
+      });
+
+      if (response.error) {
+        return res.json({ error: response.error });
+      }
+      if (response.data.status == true) {
+        value.productsId.map((id) => {
+          connection.query(
+            "INSERT INTO orders SET?",
+            {
+              user_id: user?.id,
+              shipping_address_id: value?.addressId,
+              purchased_product_id: id,
+              total_price: `NGN ${value?.totalPrice}`,
+              transaction_reference: response.data.data.reference,
+            },
+            (error, results) => {
+              if (error) {
+                console.log(error);
+                return res.json({
+                  error: "Something went wrong. Please try again.",
+                });
+              }
+              res.json({
+                message: "Order placed successfully",
+                payment_url: "https://checkout.paystack.com/5xl3n5xly4ghz6z",
+              });
+            }
+          );
+        });
+      }
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
+module.exports = { addPaymentCard, getPaymentCard, AcceptPayment };

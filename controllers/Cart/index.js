@@ -1,5 +1,6 @@
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const connection = require("../../DbConnect");
+const connection = require("../../config/DbConnect");
 const { parseProductImages } = require("../../lib/index");
 
 /**
@@ -10,7 +11,7 @@ const { parseProductImages } = require("../../lib/index");
 const addToCart = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -73,7 +74,7 @@ const addToCart = (req, res) => {
 const removeFromCart = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -111,7 +112,7 @@ const removeFromCart = (req, res) => {
 const getCartItems = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }

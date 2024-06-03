@@ -34,7 +34,14 @@ const paymentCardSchema = Joi.object().keys({
   card_number: Joi.string().max(15).required(),
   card_name: Joi.string().required(),
   expiry_date: Joi.string().required(),
-  cvv: Joi.string().max(4).required(),
+  cvv: Joi.string().min(3).max(3).required(),
+});
+
+const OrderSchema = Joi.object().keys({
+  addressId: Joi.number().required(),
+  // paymentCardId: Joi.number().required(),
+  productsId: Joi.array().required(),
+  totalPrice: Joi.number().required(),
 });
 
 module.exports = {
@@ -43,4 +50,5 @@ module.exports = {
   locationSchema,
   createProductSchema,
   paymentCardSchema,
+  OrderSchema,
 };

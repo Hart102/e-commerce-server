@@ -3,13 +3,13 @@ const router = express.Router();
 const {
   register,
   login,
-  addLocation,
+  addAddress,
   getUserAddress,
 } = require("../../controllers/User/index");
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/add-address", addLocation);
+router.post("/add-address", addAddress);
 router.get("/get-address", getUserAddress);
 
 module.exports = router;

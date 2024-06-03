@@ -1,19 +1,15 @@
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const appWrite = require("node-appwrite");
-const connection = require("../../DbConnect");
-const { bucketId, storage } = require("../../appWrite/index");
+const connection = require("../../config/DbConnect");
+const { storage } = require("../../config/appWrite/index");
 const { createProductSchema } = require("../../schema/index");
 const { parseProductImages } = require("../../lib/index");
 
-/**
- * Overall, the createProduct function handles the creation of a new product in the application,
- * ensuring that the product data is validated, the images are uploaded to the Appwrite storage,
- * and the product is inserted into the database.
- */
 const createProduct = async (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", async (err, user) => {
+    jwt.verify(token, process.env.Authentication_Token, async (err, user) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -46,7 +42,7 @@ const createProduct = async (req, res) => {
             req.files[i].originalname;
 
           const file = await storage.createFile(
-            bucketId,
+            process.env.Appwrite_BucketId,
             uniqueImageId,
             appWrite.InputFile.fromBuffer(req.files[i].buffer, uniqueFilename)
           );
@@ -88,14 +84,10 @@ const createProduct = async (req, res) => {
   }
 };
 
-/**
- * Overall, the deleteProduct function handles the deletion of a product from the application,
- * ensuring that the associated images are deleted from the Appwrite storage and that the product is removed from any related tables in the database.
- * */
 const deleteProduct = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -115,7 +107,10 @@ const deleteProduct = (req, res) => {
                 images: JSON.parse(result[0].images),
               };
               for (const image_id of result[0].images) {
-                await storage.deleteFile(bucketId, image_id);
+                await storage.deleteFile(
+                  process.env.Appwrite_BucketId,
+                  image_id
+                );
               }
               connection.query(
                 "DELETE FROM cart WHERE productId=?",
@@ -153,14 +148,10 @@ const deleteProduct = (req, res) => {
   }
 };
 
-/**
- * Overall, the getProductsByUserId function provides a way to retrieve all products associated with a specific user from the database.
- *  It ensures that only authorized users can access their own products and handles potential errors gracefully.
- */
 const getProductsByUserId = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -182,32 +173,26 @@ const getProductsByUserId = (req, res) => {
 
 const getProductById = (req, res) => {
   try {
-    const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error) => {
-      if (error) {
-        return res.json({ error: "invalid authentication token!" });
-      }
-      connection.query(
-        "SELECT * FROM products WHERE id=?",
-        [req.params.id],
-        (err, result) => {
-          if (err) {
-            return res.json({
-              error: "Something went wrong. Please try again.",
-            });
-          }
-          if (result.length > 0) {
-            result[0] = {
-              ...result[0],
-              imageId: JSON.parse(result[0].imageId),
-            };
-            return res.json(result[0]);
-          } else {
-            res.json({ error: "Product not found!" });
-          }
+    connection.query(
+      "SELECT * FROM products WHERE id=?",
+      [req.params.id],
+      (err, result) => {
+        if (err) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
         }
-      );
-    });
+        if (result.length > 0) {
+          result[0] = {
+            ...result[0],
+            imageId: JSON.parse(result[0].imageId),
+          };
+          return res.json(result[0]);
+        } else {
+          res.json({ error: "Product not found!" });
+        }
+      }
+    );
   } catch (error) {
     res.json({ error: "Internal server error!" });
   }
@@ -238,7 +223,4 @@ module.exports = {
   getProductById,
   getByCategory,
   deleteProduct,
-  // addToCart,
-  // getCartItems,
-  // removeFromCart,
 };

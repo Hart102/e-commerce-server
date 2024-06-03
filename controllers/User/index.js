@@ -1,4 +1,5 @@
-const connection = require("../../DbConnect");
+require("dotenv").config();
+const connection = require("../../config/DbConnect");
 const jwt = require("jsonwebtoken");
 const {
   registerationSchema,
@@ -61,7 +62,7 @@ const login = (req, res) => {
         }
         const token = jwt.sign(
           { id: result[0].id, email: result[0].email },
-          "tokenabc",
+          process.env.Authentication_Token,
           { expiresIn: "24h" }
         );
         res.json({ message: "Login successful", token });
@@ -72,10 +73,10 @@ const login = (req, res) => {
   }
 };
 
-const addLocation = (req, res) => {
+const addAddress = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (err, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (err, user) => {
       if (err) {
         return res.json({ error: "Invalid authentication token!" });
       }
@@ -130,7 +131,7 @@ const addLocation = (req, res) => {
 const getUserAddress = (req, res) => {
   try {
     const token = req.header("Authorization");
-    jwt.verify(token, "tokenabc", (error, user) => {
+    jwt.verify(token, process.env.Authentication_Token, (error, user) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
@@ -160,4 +161,4 @@ const updateUser = (req, res) => {};
 
 const deleteUser = (req, res) => {};
 
-module.exports = { register, login, addLocation, getUserAddress };
+module.exports = { register, login, addAddress, getUserAddress };
