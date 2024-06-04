@@ -116,8 +116,8 @@ const getCartItems = (req, res) => {
       if (error) {
         return res.json({ error: "invalid authentication token!" });
       }
-      const sql = `SELECT cart. id, demanded_quantity, products. name, price, description, category, images FROM
-       cart INNER JOIN products ON cart.productId = products.id WHERE cart.user_id = ?`;
+      let sql = `SELECT products. id, name, price, category, images, cart. id demanded_quantity FROM 
+        cart INNER JOIN products ON cart.productId = products.id WHERE cart.user_id =?`;
 
       connection.query(sql, [user.id], (error, result) => {
         if (error) {

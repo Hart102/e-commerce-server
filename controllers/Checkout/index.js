@@ -2,7 +2,10 @@ require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const connection = require("../../config/DbConnect");
 const { paymentCardSchema, OrderSchema } = require("../../schema/index");
-const { initializePayment } = require("../../config/acceptPayment");
+const {
+  initializePayment,
+  verifyPayment,
+} = require("../../config/acceptPayment");
 
 const addPaymentCard = (req, res) => {
   try {
@@ -98,35 +101,44 @@ const AcceptPayment = (req, res) => {
         email: user.email,
         amount: amountInKobo,
       });
-
       if (response.error) {
         return res.json({ error: response.error });
       }
       if (response.data.status == true) {
-        value.productsId.map((id) => {
-          connection.query(
-            "INSERT INTO orders SET?",
-            {
-              user_id: user?.id,
-              shipping_address_id: value?.addressId,
-              purchased_product_id: id,
-              total_price: `NGN ${value?.totalPrice}`,
-              transaction_reference: response.data.data.reference,
-            },
-            (error, results) => {
-              if (error) {
-                console.log(error);
-                return res.json({
-                  error: "Something went wrong. Please try again.",
-                });
-              }
-              res.json({
-                message: "Order placed successfully",
-                payment_url: "https://checkout.paystack.com/5xl3n5xly4ghz6z",
-              });
-            }
-          );
+        res.json({
+          payment_url: response.data.data.authorization_url,
         });
+
+        const verificationResponse = await verifyPayment(
+          response.data.data.reference
+        );
+
+        return console.log(verificationResponse);
+
+        if (
+          verificationResponse &&
+          verificationResponse.data.status === "success"
+        ) {
+          value.productsId.map((id) => {
+            connection.query(
+              "INSERT INTO orders SET?",
+              {
+                user_id: user?.id,
+                shipping_address_id: value?.addressId,
+                product_id: id,
+                total_price: `NGN ${value?.totalPrice}`,
+                transaction_reference: response.data.data.authorization_url,
+              },
+              (error) => {
+                if (error) {
+                  return res.json({
+                    error: "Something went wrong. Please try again.",
+                  });
+                }
+              }
+            );
+          });
+        }
       }
     });
   } catch (error) {

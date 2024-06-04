@@ -157,13 +157,13 @@ const getProductsByUserId = (req, res) => {
       }
       const sql =
         "SELECT * FROM products WHERE user_id =? ORDER BY createdAt DESC";
-      connection.query(sql, [user.id], (error, result) => {
+      connection.query(sql, [user.id], (error, products) => {
         if (error) {
           return res.json({
             error: "something went wrong. Please try again.",
           });
         }
-        res.json(parseProductImages(result));
+        res.json(parseProductImages(products));
       });
     });
   } catch (error) {
@@ -187,6 +187,7 @@ const getProductById = (req, res) => {
             ...result[0],
             imageId: JSON.parse(result[0].imageId),
           };
+          console.log(result);
           return res.json(result[0]);
         } else {
           res.json({ error: "Product not found!" });

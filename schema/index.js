@@ -38,7 +38,9 @@ const paymentCardSchema = Joi.object().keys({
 });
 
 const OrderSchema = Joi.object().keys({
-  addressId: Joi.number().required(),
+  addressId: Joi.number().required().messages({
+    "any.required": "Select shipping address",
+  }),
   // paymentCardId: Joi.number().required(),
   productsId: Joi.array().required(),
   totalPrice: Joi.number().required(),
