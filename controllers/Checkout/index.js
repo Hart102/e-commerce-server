@@ -104,41 +104,33 @@ const AcceptPayment = (req, res) => {
       if (response.error) {
         return res.json({ error: response.error });
       }
-      if (response.data.status == true) {
-        res.json({
-          payment_url: response.data.data.authorization_url,
-        });
-
-        const verificationResponse = await verifyPayment(
-          response.data.data.reference
-        );
-
-        return console.log(verificationResponse);
-
-        if (
-          verificationResponse &&
-          verificationResponse.data.status === "success"
-        ) {
-          value.productsId.map((id) => {
-            connection.query(
-              "INSERT INTO orders SET?",
-              {
-                user_id: user?.id,
-                shipping_address_id: value?.addressId,
-                product_id: id,
-                total_price: `NGN ${value?.totalPrice}`,
-                transaction_reference: response.data.data.authorization_url,
-              },
-              (error) => {
-                if (error) {
-                  return res.json({
-                    error: "Something went wrong. Please try again.",
-                  });
-                }
+      if (response.data.status === true) {
+        value.productsId.map((id) => {
+          connection.query(
+            "INSERT INTO orders SET?",
+            {
+              user_id: user?.id,
+              shipping_address_id: value?.addressId,
+              product_id: id,
+              total_price: `NGN ${value?.totalPrice}`,
+              transaction_reference: response.data.data.reference,
+            },
+            (error) => {
+              if (error) {
+                return res.json({
+                  error: "Something went wrong. Please try again.",
+                });
               }
-            );
-          });
-        }
+              user = {
+                ...user,
+                transaction_reference: response.data.data.reference,
+              };
+              res.json({
+                payment_url: response.data.data.authorization_url,
+              });
+            }
+          );
+        });
       }
     });
   } catch (error) {
