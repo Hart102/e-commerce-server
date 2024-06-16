@@ -58,7 +58,7 @@ const login = (req, res) => {
           return res.json({ error: "Internal server error" });
         }
         if (result.length === 0) {
-          return res.json({ error: "User not found" });
+          return res.json({ error: "Incorrect username or password" });
         }
         const token = jwt.sign(
           { id: result[0].id, email: result[0].email },
