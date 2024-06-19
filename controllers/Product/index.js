@@ -218,6 +218,8 @@ const getByCategory = (req, res) => {
   }
 };
 
+
+
 module.exports = {
   getProductsByUserId,
   createProduct,

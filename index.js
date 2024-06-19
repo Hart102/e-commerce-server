@@ -6,7 +6,7 @@ const bodyParser = require("body-parser");
 const userRoutes = require("./routes/User/index");
 const productRoutes = require("./routes/Product/index");
 const cart = require("./routes/Cart/index");
-const checkout = require("./routes/Checkout/index");
+const checkout = require("./routes/payment/index");
 
 // MIDDLE WARES
 const app = express();
@@ -19,7 +19,7 @@ app.use(bodyParser.json());
 app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cart);
-app.use("/api/checkout", checkout);
+app.use("/api/payment", checkout);
 
 
 
