@@ -55,6 +55,7 @@ const AcceptPayment = (req, res) => {
             const response = await initializePayment({
               email: user.email,
               amount: amountInKobo,
+              name: `${user.firstName} ${user.lastName}`,
             });
             if (response.error) {
               return res.json({ error: response.error });
@@ -76,10 +77,6 @@ const AcceptPayment = (req, res) => {
                         error: "Something went wrong. Please try again.",
                       });
                     }
-                    user = {
-                      ...user,
-                      transaction_reference: response.data.data.reference,
-                    };
                     res.json({
                       payment_url: response.data.data.authorization_url,
                     });

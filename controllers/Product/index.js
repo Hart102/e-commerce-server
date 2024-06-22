@@ -1,12 +1,14 @@
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
-const appWrite = require("node-appwrite");
 const connection = require("../../config/DbConnect");
-const { storage } = require("../../config/appWrite/index");
+const {
+  storage,
+  AppWriteFilesUploader,
+} = require("../../config/appWrite/index");
 const { createProductSchema } = require("../../schema/index");
 const { parseProductImages } = require("../../lib/index");
 
-const createProduct = async (req, res) => {
+const CreateProduct = (req, res) => {
   try {
     const token = req.header("Authorization");
     jwt.verify(token, process.env.Authentication_Token, async (err, user) => {
@@ -31,28 +33,8 @@ const createProduct = async (req, res) => {
       if (error) {
         return res.json({ error: error.details[0].message });
       }
-      // Function to upload images to Appwrite storage
-      const uploadFiles = async () => {
-        const files = [];
-        for (let i = 0; i < req.files.length; ) {
-          const uniqueImageId = Math.random().toString(36).substring(2, 8);
-          const uniqueFilename =
-            Math.random().toString(36).substring(2, 8) +
-            "-" +
-            req.files[i].originalname;
-
-          const file = await storage.createFile(
-            process.env.Appwrite_BucketId,
-            uniqueImageId,
-            appWrite.InputFile.fromBuffer(req.files[i].buffer, uniqueFilename)
-          );
-          files.push(file.$id);
-          i++;
-          if (files.length == req.files.length) return files;
-        }
-      };
-      // Upload the images and get the file IDs
-      const uploadImages = await uploadFiles();
+      // Upload images to Appwrite storage and get the file IDs as response
+      const uploadImageIds = await AppWriteFilesUploader(req.files);
       // Insert the product data into the database
       connection.query(
         "INSERT INTO products SET ?",
@@ -63,7 +45,7 @@ const createProduct = async (req, res) => {
           category: value.category.toLowerCase(),
           quantity: Number(value.quantity),
           status: value.status,
-          images: JSON.stringify(uploadImages),
+          images: JSON.stringify(uploadImageIds),
           user_id: user.id,
         },
         (error, results) => {
@@ -84,7 +66,96 @@ const createProduct = async (req, res) => {
   }
 };
 
-const deleteProduct = (req, res) => {
+const EditProduct = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, async (err) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      let uploadImageIds;
+      if (req.files.length > 0) {
+        uploadImageIds = await AppWriteFilesUploader(req.files);
+        const replacedImageIds = JSON.parse(req.body.replacedImages);
+        for (let i = 0; i < replacedImageIds.length; i++) {
+          storage.deleteFile(
+            process.env.Appwrite_BucketId,
+            replacedImageIds[i]
+          );
+        }
+      }
+      // REUSED
+      const update_database = (images) => {
+        const { id, name, price, description, category, quantity, status } =
+          req.body;
+        connection.query(
+          `UPDATE products 
+            SET name = ?, price = ?, description = ?, category = ?, quantity = ?, status = ?, images = ? 
+            WHERE id = ?`,
+          [
+            name.toLowerCase(),
+            price,
+            description.toLowerCase(),
+            category.toLowerCase(),
+            quantity,
+            status.toLowerCase(),
+            JSON.stringify(images),
+            id,
+          ],
+          (error, response) => {
+            if (error) {
+              return res.json({
+                error: "Something went wrong. Please try again.",
+              });
+            }
+            if (response.affectedRows) {
+              res.json({
+                message: "Product edited successfully",
+              });
+            }
+          }
+        );
+      };
+      if (uploadImageIds !== undefined) {
+        const replacedImageIds = JSON.parse(req.body.replacedImages);
+        connection.query(
+          "SELECT images FROM products WHERE id =?",
+          [req.body.id],
+          async (error, productImages) => {
+            if (error) {
+              return res.json({
+                error: "Something went wrong. Please try again.",
+              });
+            }
+            productImages = JSON.parse(productImages[0].images);
+            const changedImages = (images) => {
+              if (images) {
+                for (let i = 0; i < images.length; i++) {
+                  for (let j = 0; j < replacedImageIds.length; j++) {
+                    if (images[i] === replacedImageIds[j]) {
+                      images[i] = uploadImageIds[j];
+                      break;
+                    }
+                  }
+                }
+                return images;
+              }
+            };
+            const updatedImageIds = changedImages(productImages);
+            update_database(updatedImageIds); //Update DB
+          }
+        );
+      } else {
+        const existingImageIds = JSON.parse(req.body.images);
+        update_database(existingImageIds); //Update DB
+      }
+    });
+  } catch (error) {
+    res.json({ error: "Internal server error!" });
+  }
+};
+
+const DeleteProduct = (req, res) => {
   try {
     const token = req.header("Authorization");
     jwt.verify(token, process.env.Authentication_Token, (error, user) => {
@@ -148,7 +219,7 @@ const deleteProduct = (req, res) => {
   }
 };
 
-const getProductsByUserId = (req, res) => {
+const GetProductsByUserId = (req, res) => {
   try {
     const token = req.header("Authorization");
     jwt.verify(token, process.env.Authentication_Token, (error, user) => {
@@ -171,7 +242,7 @@ const getProductsByUserId = (req, res) => {
   }
 };
 
-const getProductById = (req, res) => {
+const GetProductById = (req, res) => {
   try {
     connection.query(
       "SELECT * FROM products WHERE id=?",
@@ -187,7 +258,6 @@ const getProductById = (req, res) => {
             ...result[0],
             imageId: JSON.parse(result[0].imageId),
           };
-          console.log(result);
           return res.json(result[0]);
         } else {
           res.json({ error: "Product not found!" });
@@ -199,7 +269,7 @@ const getProductById = (req, res) => {
   }
 };
 
-const getByCategory = (req, res) => {
+const GetByCategory = (req, res) => {
   if (req.params.category) {
     try {
       const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
@@ -218,12 +288,11 @@ const getByCategory = (req, res) => {
   }
 };
 
-
-
 module.exports = {
-  getProductsByUserId,
-  createProduct,
-  getProductById,
-  getByCategory,
-  deleteProduct,
+  CreateProduct,
+  EditProduct,
+  DeleteProduct,
+  GetProductsByUserId,
+  GetProductById,
+  GetByCategory,
 };
