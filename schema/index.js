@@ -28,6 +28,10 @@ const createProductSchema = Joi.object().keys({
   category: Joi.string().required(),
   quantity: Joi.number().required(),
   status: Joi.string().required(),
+  replacedImageIds: Joi.string(),
+  images: Joi.string(),
+  id: Joi.string(),
+  file: Joi.string(),
 });
 
 const paymentCardSchema = Joi.object().keys({

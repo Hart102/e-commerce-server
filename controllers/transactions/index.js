@@ -4,6 +4,7 @@ const axios = require("axios");
 const connection = require("../../config/DbConnect");
 const { OrderSchema } = require("../../schema/index");
 const { initializePayment } = require("../../config/acceptPayment");
+const { parseProductImages } = require("../../lib");
 
 const GetUncompletedOrderByuserId = (req, res) => {
   try {
@@ -147,7 +148,107 @@ const confirmPayment = (req, res) => {
   }
 };
 
-module.exports = { AcceptPayment, confirmPayment, GetUncompletedOrderByuserId };
+const FetchAllOrders = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, (err) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      const sql = `SELECT orders.*, products.images, products.name, users.firstname FROM orders JOIN 
+      products ON orders.product_id = products.id JOIN users ON orders.user_id = users.id ORDER BY orders.id DESC`;
+
+      connection.query(sql, (error, orders) => {
+        if (error) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
+        }
+        res.json(parseProductImages(orders));
+      });
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
+const FetchCustomerAndOrderDetails = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, (err) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      if (req.params.orderId) {
+        const sql = `SELECT 
+            users.*, 
+            address.*, 
+            orders.*, 
+            products.images,
+            products.name
+          FROM 
+            users
+          LEFT JOIN 
+            address ON users.id = address.user_id
+          LEFT JOIN 
+            orders ON users.id = orders.user_id AND address.id = orders.shipping_address_id
+          LEFT JOIN 
+            products ON orders.product_id = products.id
+          WHERE 
+            orders.id = ?`;
+
+        connection.query(sql, [req.params.orderId], (error, response) => {
+          if (error) {
+            return res.json({
+              error: "Something went wrong. Please try again.",
+            });
+          }
+          res.json(parseProductImages(response));
+        });
+      }
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
+const DeleteOrder = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, (err) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      connection.query(
+        "DELETE FROM orders WHERE id = ?",
+        [req.params.id],
+        (error, response) => {
+          if (error) {
+            return res.json({
+              error: "Something went wrong. Please try again.",
+            });
+          }
+          if (response.affectedRows > 0) {
+            return res.json({
+              message: "Order deleted successfully",
+            });
+          }
+        }
+      );
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
+module.exports = {
+  AcceptPayment,
+  confirmPayment,
+  GetUncompletedOrderByuserId,
+  FetchAllOrders,
+  FetchCustomerAndOrderDetails,
+  DeleteOrder,
+};
 
 // const addPaymentCard = (req, res) => {
 //   try {
@@ -224,5 +325,29 @@ module.exports = { AcceptPayment, confirmPayment, GetUncompletedOrderByuserId };
 //     });
 //   } catch (error) {
 //     res.json({ error: "Internal server error!" });
+//   }
+// };
+
+// const FetchAllOrders = (req, res) => {
+//   try {
+//     const token = req.header("Authorization");
+//     jwt.verify(token, process.env.Authentication_Token, (err, user) => {
+//       if (err) {
+//         return res.json({ error: "invalid authentication token!" });
+//       }
+//       const sql = `SELECT orders.*, products.images, products.name, users.firstname FROM orders JOIN
+//       products ON orders.product_id = products.id JOIN users ON orders.user_id = users.id WHERE orders.user_id = ? ORDER BY orders.id DESC`;
+
+//       connection.query(sql, [user.id], (error, orders) => {
+//         if (error) {
+//           return res.json({
+//             error: "Something went wrong. Please try again.",
+//           });
+//         }
+//         res.json(parseProductImages(orders));
+//       });
+//     });
+//   } catch (error) {
+//     res.json({ error: "internal server error" });
 //   }
 // };

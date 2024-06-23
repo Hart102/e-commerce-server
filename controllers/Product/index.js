@@ -20,22 +20,18 @@ const CreateProduct = (req, res) => {
           error: "Four product images required to create post.",
         });
       }
-      for (let i = 0; i < req.files.length; ) {
+      for (let i = 0; i < req.files.length; i++) {
         if (!req.files[i].originalname.match(/\.(jpg|jpeg|png)$/i)) {
           return res.json({
             error: "Only JPG, JPEG, or PNG files are allowed",
           });
         }
-        i++;
       }
-      // Validate the product data using the createProductSchema
       const { error, value } = createProductSchema.validate(req.body);
       if (error) {
         return res.json({ error: error.details[0].message });
       }
-      // Upload images to Appwrite storage and get the file IDs as response
       const uploadImageIds = await AppWriteFilesUploader(req.files);
-      // Insert the product data into the database
       connection.query(
         "INSERT INTO products SET ?",
         {
@@ -73,10 +69,21 @@ const EditProduct = (req, res) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
+      const { error } = createProductSchema.validate(req.body);
+      if (error) {
+        return res.json({ error: error.details[0].message });
+      }
       let uploadImageIds;
       if (req.files.length > 0) {
+        for (let i = 0; i < req.files.length; i++) {
+          if (!req.files[i].originalname.match(/\.(jpg|jpeg|png)$/i)) {
+            return res.json({
+              error: "Only JPG, JPEG, or PNG files are allowed",
+            });
+          }
+        }
         uploadImageIds = await AppWriteFilesUploader(req.files);
-        const replacedImageIds = JSON.parse(req.body.replacedImages);
+        const replacedImageIds = JSON.parse(req.body.replacedImageIds);
         for (let i = 0; i < replacedImageIds.length; i++) {
           storage.deleteFile(
             process.env.Appwrite_BucketId,
@@ -117,7 +124,7 @@ const EditProduct = (req, res) => {
         );
       };
       if (uploadImageIds !== undefined) {
-        const replacedImageIds = JSON.parse(req.body.replacedImages);
+        const replacedImageIds = JSON.parse(req.body.replacedImageIds);
         connection.query(
           "SELECT images FROM products WHERE id =?",
           [req.body.id],
