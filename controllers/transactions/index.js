@@ -38,61 +38,44 @@ const AcceptPayment = (req, res) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
-      connection.query(
-        "SELECT id FROM orders WHERE user_id = ? AND payment_status IS NULL",
-        [user.id],
-        async (error, result) => {
-          if (error) {
-            return res.json({
-              error: "Something went wrong. Please try again.",
-            });
-          }
-          if (result.length < 1) {
-            const { error, value } = OrderSchema.validate(req.body);
-            if (error) {
-              return res.json({ error: error.details[0].message });
+      const { error, value } = OrderSchema.validate(req.body);
+      if (error) {
+        return res.json({ error: error.details[0].message });
+      }
+      const amountInKobo = parseFloat(value.totalPrice);
+      const response = await initializePayment({
+        email: user.email,
+        amount: amountInKobo,
+        name: `${user.firstName} ${user.lastName}`,
+      });
+      if (response.error) {
+        return res.json({ error: response.error });
+      }
+      if (response.data.status === true) {
+        for (let i = 0; i < value.products.length; i++) {
+          connection.query(
+            "INSERT INTO orders SET?",
+            {
+              user_id: user?.id,
+              shipping_address_id: value?.addressId,
+              product_id: value.products[i].productId,
+              demanded_quantity: value.products[i].demandedQuantity,
+              total_price: `NGN ${value.products[i].price}`,
+              transaction_reference: response.data.data.reference,
+            },
+            (error) => {
+              if (error) {
+                return res.json({
+                  error: "Something went wrong. Please try again.",
+                });
+              }
             }
-            const amountInKobo = parseFloat(value.totalPrice);
-            const response = await initializePayment({
-              email: user.email,
-              amount: amountInKobo,
-              name: `${user.firstName} ${user.lastName}`,
-            });
-            if (response.error) {
-              return res.json({ error: response.error });
-            }
-            if (response.data.status === true) {
-              value.productsId.map((id) => {
-                connection.query(
-                  "INSERT INTO orders SET?",
-                  {
-                    user_id: user?.id,
-                    shipping_address_id: value?.addressId,
-                    product_id: id,
-                    total_price: `NGN ${value?.totalPrice}`,
-                    transaction_reference: response.data.data.reference,
-                  },
-                  (error) => {
-                    if (error) {
-                      return res.json({
-                        error: "Something went wrong. Please try again.",
-                      });
-                    }
-                    res.json({
-                      payment_url: response.data.data.authorization_url,
-                    });
-                  }
-                );
-              });
-            }
-          } else {
-            res.json({
-              error:
-                "Please verify your last payment to continue with the current transaction",
-            });
-          }
+          );
         }
-      );
+        res.json({
+          payment_url: response.data.data.authorization_url,
+        });
+      }
     });
   } catch (error) {
     res.json({ error: "internal server error" });
@@ -203,6 +186,7 @@ const FetchCustomerAndOrderDetails = (req, res) => {
               error: "Something went wrong. Please try again.",
             });
           }
+          console.log(response);
           res.json(parseProductImages(response));
         });
       }
@@ -230,7 +214,7 @@ const DeleteOrder = (req, res) => {
           }
           if (response.affectedRows > 0) {
             return res.json({
-              message: "Order deleted successfully",
+              message: "Record deleted successfully",
             });
           }
         }
