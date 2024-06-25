@@ -31,6 +31,7 @@ const GetUncompletedOrderByuserId = (req, res) => {
   }
 };
 
+//Done
 const AcceptPayment = (req, res) => {
   try {
     const token = req.header("Authorization");
@@ -82,6 +83,7 @@ const AcceptPayment = (req, res) => {
   }
 };
 
+//Done
 const confirmPayment = (req, res) => {
   try {
     const token = req.header("Authorization");
@@ -103,11 +105,10 @@ const confirmPayment = (req, res) => {
           }
         );
         const { data } = await response;
-
         if (data.status) {
           connection.query(
-            "UPDATE orders SET payment_status =? WHERE id =?",
-            [data.data.status, order[0].id],
+            "UPDATE orders SET payment_status =? WHERE transaction_reference =?",
+            [data.data.status, order[0].transaction_reference],
             (error) => {
               if (error) {
                 return res.json({
@@ -155,41 +156,48 @@ const FetchAllOrders = (req, res) => {
   }
 };
 
-const FetchCustomerAndOrderDetails = (req, res) => {
+const FetChCustomerAndOrderDeatils = (req, res) => {
   try {
     const token = req.header("Authorization");
     jwt.verify(token, process.env.Authentication_Token, (err) => {
       if (err) {
         return res.json({ error: "invalid authentication token!" });
       }
-      if (req.params.orderId) {
-        const sql = `SELECT 
-            users.*, 
-            address.*, 
-            orders.*, 
-            products.images,
-            products.name
-          FROM 
-            users
-          LEFT JOIN 
-            address ON users.id = address.user_id
-          LEFT JOIN 
-            orders ON users.id = orders.user_id AND address.id = orders.shipping_address_id
-          LEFT JOIN 
-            products ON orders.product_id = products.id
-          WHERE 
-            orders.id = ?`;
+      const sql = `SELECT * FROM orders, users, address WHERE orders.id =?  AND users.id = orders.user_id AND address.id = orders.shipping_address_id`;
+      connection.query(sql, [req.params.orderId], (error, result) => {
+        if (error) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
+        }
+        res.json(result[0]);
+      });
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
 
-        connection.query(sql, [req.params.orderId], (error, response) => {
+const FetchOrdersAndProduct = (req, res) => {
+  try {
+    const token = req.header("Authorization");
+    jwt.verify(token, process.env.Authentication_Token, (err) => {
+      if (err) {
+        return res.json({ error: "invalid authentication token!" });
+      }
+      const sql = `SELECT * FROM orders, products WHERE orders.user_id =? AND orders.transaction_reference = ? AND products.id = orders.product_id`;
+      connection.query(
+        sql,
+        [req.body.userId, req.body.orderId],
+        (error, result) => {
           if (error) {
             return res.json({
               error: "Something went wrong. Please try again.",
             });
           }
-          console.log(response);
-          res.json(parseProductImages(response));
-        });
-      }
+          res.json(parseProductImages(result));
+        }
+      );
     });
   } catch (error) {
     res.json({ error: "internal server error" });
@@ -230,7 +238,8 @@ module.exports = {
   confirmPayment,
   GetUncompletedOrderByuserId,
   FetchAllOrders,
-  FetchCustomerAndOrderDetails,
+  FetChCustomerAndOrderDeatils,
+  FetchOrdersAndProduct,
   DeleteOrder,
 };
 

@@ -45,9 +45,13 @@ const OrderSchema = Joi.object().keys({
   addressId: Joi.number().required().messages({
     "any.required": "Please provide a shipping address",
   }),
-  // paymentCardId: Joi.number().required(),
   products: Joi.array().required(),
   totalPrice: Joi.number().required(),
+});
+
+const categorySchema = Joi.object().keys({
+  name: Joi.string().required(),
+  status: Joi.string().required(),
 });
 
 module.exports = {
@@ -57,4 +61,5 @@ module.exports = {
   createProductSchema,
   paymentCardSchema,
   OrderSchema,
+  categorySchema,
 };

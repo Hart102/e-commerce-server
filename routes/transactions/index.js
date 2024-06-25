@@ -5,18 +5,21 @@ const {
   AcceptPayment,
   confirmPayment,
   FetchAllOrders,
-  FetchCustomerAndOrderDetails,
+  FetChCustomerAndOrderDeatils,
+  FetchOrdersAndProduct,
   DeleteOrder,
 } = require("../../controllers/transactions/index");
 
-router.get("/getUncompleted-payment", GetUncompletedOrderByuserId);
-router.post("/accept-payment", AcceptPayment);
-router.get("/confirm-payment", confirmPayment);
+router.get("/getUncompleted-payment", GetUncompletedOrderByuserId); //Done
+router.post("/accept-payment", AcceptPayment); //Done
+router.get("/confirm-payment", confirmPayment); //Done
+
+router.get("/fetch-all-orders", FetchAllOrders); //Done
+router.delete("/delete-order/:id", DeleteOrder); //Done
 router.get(
-  "/fetch-customers-and-orderDetails/:orderId",
-  FetchCustomerAndOrderDetails
+  "/fetch-customer-and-orderDetails/:orderId",
+  FetChCustomerAndOrderDeatils
 );
-router.get("/fetch-all-orders", FetchAllOrders);
-router.delete("/delete-order/:id", DeleteOrder);
+router.post("/fetch-order-and-products", FetchOrdersAndProduct);//Done
 
 module.exports = router;

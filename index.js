@@ -6,7 +6,8 @@ const bodyParser = require("body-parser");
 const userRoutes = require("./routes/User/index");
 const productRoutes = require("./routes/Product/index");
 const cart = require("./routes/Cart/index");
-const checkout = require("./routes/transactions/index");
+const transactions = require("./routes/transactions/index");
+const categoryRoutes = require("./routes/categories/index");
 
 // MIDDLE WARES
 const app = express();
@@ -19,7 +20,8 @@ app.use(bodyParser.json());
 app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/cart", cart);
-app.use("/api/transactions", checkout);
+app.use("/api/transactions", transactions);
+app.use("/api/categories", categoryRoutes);
 
 
 
