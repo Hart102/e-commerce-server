@@ -9,11 +9,12 @@ const {
   GetProductById,
   GetByCategory,
 } = require("../../controllers/Product/index");
+const authMiddleware = require("../../auth/authMiddleware");
 
-router.put("/create", fileuploader, CreateProduct); //Done
-router.put("/edit", fileuploader, EditProduct); //Done
-router.delete("/delete/:id", DeleteProduct); //Done
-router.get("/", GetProductsByUserId); //Done
+router.put("/create", authMiddleware, fileuploader, CreateProduct); //Done
+router.put("/edit", authMiddleware, fileuploader, EditProduct); //Done
+router.delete("/delete/:id", authMiddleware, DeleteProduct); //Done
+router.get("/", authMiddleware, GetProductsByUserId); //Done
 router.get("/getProductById/:id", GetProductById);
 router.get("/category/:category", GetByCategory);
 

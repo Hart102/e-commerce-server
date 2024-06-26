@@ -1,29 +1,83 @@
 require("dotenv").config();
-const jwt = require("jsonwebtoken");
 const connection = require("../../config/DbConnect");
 const { categorySchema } = require("../../schema/index");
 
 const CreateCategory = (req, res) => {
   try {
-    console.log(req.body);
-    const token = req.header("Authorization");
-    jwt.verify(token, process.env.Authentication_Token, (err) => {
-      if (err) {
-        return res.json({ error: "invalid authentication token!" });
+    const { error, value } = categorySchema.validate(req.body);
+    if (error) {
+      return res.json({ error: error.details[0].message });
+    }
+    connection.query(
+      "INSERT INTO categories SET?",
+      { name: value.name.toLowerCase(), status: value.status },
+      (error, result) => {
+        if (error) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
+        }
+        if (result.affectedRows > 0) {
+          res.json({ message: "Category created successfully!" });
+        }
       }
-      const { error, value } = categorySchema.validate(req.body);
-      if (error) {
-        return res.json({ error: error.details[0].message });
-      }
+    );
+  } catch (error) {
+    res.json("internal server error");
+  }
+};
 
-      console.log(value);
+const FetchAllCategory = (req, res) => {
+  try {
+    const sql = `SELECT 
+        categories.*, 
+        COUNT(products.id) AS product_count
+      FROM 
+        categories
+      LEFT JOIN 
+        products ON categories.name = products.category
+      GROUP BY 
+        categories.id
+      ORDER BY 
+        categories.createdAt DESC`;
+    connection.query(sql, (error, result) => {
+      if (error) {
+        return res.json({
+          error: "Something went wrong. Please try again.",
+        });
+      }
+      res.json(result);
     });
   } catch (error) {
-    console.log(error.message);
-    res.json("internal server error");
+    res.json({ error: "Internal server error" });
+  }
+};
+
+const DeleteCategory = (req, res) => {
+  try {
+    if (req.params.id) {
+      connection.query(
+        "DELETE FROM categories WHERE id =?",
+        [req.params.id],
+        (error, result) => {
+          if (error) {
+            return res.json({
+              error: "Something went wrong. Please try again.",
+            });
+          }
+          if (result.affectedRows > 0) {
+            res.json({ message: "Category deleted successfully!" });
+          }
+        }
+      );
+    }
+  } catch (error) {
+    res.json({ error: "Internal server error" });
   }
 };
 
 module.exports = {
   CreateCategory,
+  FetchAllCategory,
+  DeleteCategory,
 };

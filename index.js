@@ -2,6 +2,8 @@ const express = require("express");
 const PORT = 3000;
 const cors = require("cors");
 const bodyParser = require("body-parser");
+// const authMiddleware = require("./controllers/categories/auth/authMiddleware");
+
 // ROUTES
 const userRoutes = require("./routes/User/index");
 const productRoutes = require("./routes/Product/index");
@@ -15,6 +17,7 @@ app.use(express.json());
 app.use(cors({ origin: "*" }));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
+// app.use(authMiddleware);
 
 // ENDPOINTS
 app.use("/api/user", userRoutes);
