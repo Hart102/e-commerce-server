@@ -2,7 +2,6 @@ const express = require("express");
 const PORT = 3000;
 const cors = require("cors");
 const bodyParser = require("body-parser");
-// const authMiddleware = require("./controllers/categories/auth/authMiddleware");
 
 // ROUTES
 const userRoutes = require("./routes/User/index");

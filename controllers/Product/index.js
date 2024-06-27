@@ -243,12 +243,11 @@ const GetProductById = (req, res) => {
       );
     }
   } catch (error) {
-    console.log(error.message);
     res.json({ error: "Internal server error!" });
   }
 };
 
-const GetByCategory = (req, res) => {
+const GetProductsByCategory = (req, res) => {
   try {
     if (req.params.category) {
       const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
@@ -273,5 +272,5 @@ module.exports = {
   DeleteProduct,
   GetProductsByUserId,
   GetProductById,
-  GetByCategory,
+  GetProductsByCategory,
 };
