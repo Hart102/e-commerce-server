@@ -12,7 +12,18 @@ const loginSchema = Joi.object().keys({
   password: Joi.string().required(),
 });
 
-const locationSchema = Joi.object().keys({
+const EditProfileSchema = Joi.object().keys({
+  firstname: Joi.string().required(),
+  lastname: Joi.string().required(),
+  email: Joi.string().email().required(),
+});
+
+const ResetPasswordSchema = Joi.object().keys({
+  oldPassword: Joi.string().required(),
+  newPassword: Joi.string().required(),
+});
+
+const AddressSchema = Joi.object().keys({
   address: Joi.string().required(),
   city: Joi.string().required(),
   country: Joi.string().required(),
@@ -20,6 +31,7 @@ const locationSchema = Joi.object().keys({
   zipcode: Joi.string().required(),
   phone: Joi.string().required(),
 });
+//------------------------------------------------
 
 const createProductSchema = Joi.object().keys({
   name: Joi.string().required(),
@@ -55,9 +67,11 @@ const categorySchema = Joi.object().keys({
 });
 
 module.exports = {
-  loginSchema,
   registerationSchema,
-  locationSchema,
+  loginSchema,
+  EditProfileSchema,
+  ResetPasswordSchema,
+  AddressSchema,
   createProductSchema,
   paymentCardSchema,
   OrderSchema,

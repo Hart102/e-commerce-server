@@ -4,12 +4,22 @@ const {
   register,
   login,
   addAddress,
-  getUserAddress,
+  FetchUserAddress,
+  DeleteAddress,
+  EditProfile,
+  ResetPassword,
 } = require("../../controllers/User/index");
+const authMiddleWare = require("../../auth/authMiddleware");
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/add-address", addAddress);
-router.get("/get-address", getUserAddress);
+router.post("/add-address", authMiddleWare, addAddress);
+router.get("/get-address", authMiddleWare, FetchUserAddress);
+router.patch("/edit-profile", authMiddleWare, EditProfile);
+router.patch("/reset-password", authMiddleWare, ResetPassword);
+router.delete("/delete-address/:id", authMiddleWare, DeleteAddress);
+
+
+
 
 module.exports = router;

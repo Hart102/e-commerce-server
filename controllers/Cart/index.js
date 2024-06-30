@@ -77,8 +77,7 @@ const removeFromCart = (req, res) => {
       connection.query(
         "DELETE FROM `cart` WHERE id = ?",
         [req.params.id],
-        (error, response) => {
-          console.log(response);
+        (error) => {
           if (error) {
             res.json({ error: "something went wrong please try again." });
           } else {
