@@ -27,6 +27,31 @@ const CreateCategory = (req, res) => {
   }
 };
 
+const EditCategory = (req, res) => {
+  try {
+    const { error, value } = categorySchema.validate(req.body);
+    if (error) {
+      return res.json({ error: error.details[0].message });
+    }
+    connection.query(
+      "UPDATE categories SET? WHERE id =?",
+      [{ name: value.name.toLowerCase(), status: value.status }, req.params.id],
+      (error, result) => {
+        if (error) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
+        }
+        if (result.affectedRows > 0) {
+          res.json({ message: "Category updated successfully!" });
+        }
+      }
+    );
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
 const FetchAllCategory = (req, res) => {
   try {
     const sql = `SELECT 
@@ -78,6 +103,7 @@ const DeleteCategory = (req, res) => {
 
 module.exports = {
   CreateCategory,
+  EditCategory,
   FetchAllCategory,
   DeleteCategory,
 };
