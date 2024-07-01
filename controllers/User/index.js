@@ -75,7 +75,7 @@ const login = (req, res) => {
   }
 };
 
-const addAddress = (req, res) => {
+const CreateAddress = (req, res) => {
   try {
     const { error, value } = AddressSchema.validate(req.body);
     if (error) {
@@ -180,15 +180,16 @@ const ResetPassword = (req, res) => {
     }
     const { oldPassword, newPassword } = value;
     connection.query(
-      "UPDATE, users SET password =? WHERE id =?",
-      [newPassword, req.user.id],
+      "UPDATE users SET password =? WHERE id =? AND password =?",
+      [newPassword, req.user.id, oldPassword],
       (error, response) => {
         if (error) {
-          console.log(error);
           return res.json({ error: "something went wrong, please try again." });
         }
         if (response.affectedRows > 0) {
           res.json({ message: "Password updated" });
+        } else {
+          res.json({ error: "Incorrect previous password" });
         }
       }
     );
@@ -229,7 +230,7 @@ const deleteUser = (req, res) => {};
 module.exports = {
   register,
   login,
-  addAddress,
+  CreateAddress,
   FetchUserAddress,
   EditProfile,
   ResetPassword,

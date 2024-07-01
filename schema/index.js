@@ -20,7 +20,7 @@ const EditProfileSchema = Joi.object().keys({
 
 const ResetPasswordSchema = Joi.object().keys({
   oldPassword: Joi.string().required(),
-  newPassword: Joi.string().required(),
+  newPassword: Joi.string().min(4).required(),
 });
 
 const AddressSchema = Joi.object().keys({

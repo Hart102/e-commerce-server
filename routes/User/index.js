@@ -3,7 +3,7 @@ const router = express.Router();
 const {
   register,
   login,
-  addAddress,
+  CreateAddress,
   FetchUserAddress,
   DeleteAddress,
   EditProfile,
@@ -13,7 +13,7 @@ const authMiddleWare = require("../../auth/authMiddleware");
 
 router.post("/register", register);
 router.post("/login", login);
-router.post("/add-address", authMiddleWare, addAddress);
+router.post("/add-address", authMiddleWare, CreateAddress);
 router.get("/get-address", authMiddleWare, FetchUserAddress);
 router.patch("/edit-profile", authMiddleWare, EditProfile);
 router.patch("/reset-password", authMiddleWare, ResetPassword);

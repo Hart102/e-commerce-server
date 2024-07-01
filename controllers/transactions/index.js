@@ -5,7 +5,7 @@ const { OrderSchema } = require("../../schema/index");
 const { initializePayment } = require("../../config/acceptPayment");
 const { parseProductImages } = require("../../lib");
 
-const GetUncompletedOrderByuserId = (req, res) => {
+const FetchUncompletedOrderByuserId = (req, res) => {
   try {
     connection.query(
       "SELECT id, payment_status FROM orders WHERE user_id = ? AND payment_status IS NULL",
@@ -71,7 +71,7 @@ const AcceptPayment = async (req, res) => {
 };
 
 //Done
-const confirmPayment = (req, res) => {
+const ConfirmPayment = (req, res) => {
   try {
     const sql = `SELECT id, transaction_reference FROM orders WHERE id = (SELECT MAX(id) FROM orders WHERE user_id = ?)`;
     connection.query(sql, [req.user.id], async (err, order) => {
@@ -115,11 +115,58 @@ const confirmPayment = (req, res) => {
 
 const FetchAllOrders = (req, res) => {
   try {
-    const sql = `SELECT orders.*, products.images, products.name, users.firstname FROM orders JOIN 
-      products ON orders.product_id = products.id JOIN users ON orders.user_id = users.id ORDER BY orders.id DESC`;
+    const sql = `
+    SELECT 
+      orders.*, 
+      products.images, 
+      products.name, 
+      users.firstname 
+    FROM 
+      orders 
+    JOIN 
+      products 
+    ON orders.product_id = products.id 
+    JOIN users ON orders.user_id = users.id 
+    ORDER BY 
+      orders.id DESC`;
 
     connection.query(sql, (error, orders) => {
       if (error) {
+        return res.json({
+          error: "Something went wrong. Please try again.",
+        });
+      }
+      res.json(parseProductImages(orders));
+    });
+  } catch (error) {
+    res.json({ error: "internal server error" });
+  }
+};
+
+const FetchAllOrderByUserId = (req, res) => {
+  try {
+    const sql = `
+    SELECT 
+      orders.*, 
+      products.images, 
+      products.name, 
+      users.firstname 
+    FROM 
+      orders 
+    JOIN 
+      products 
+    ON 
+      orders.product_id = products.id 
+    JOIN users ON 
+      orders.user_id = users.id 
+    WHERE 
+      orders.user_id =? 
+    ORDER BY 
+      orders.id DESC`;
+
+    connection.query(sql, [req.user.id], (error, orders) => {
+      if (error) {
+        console.log(error);
         return res.json({
           error: "Something went wrong. Please try again.",
         });
@@ -192,9 +239,10 @@ const DeleteOrder = (req, res) => {
 
 module.exports = {
   AcceptPayment,
-  confirmPayment,
-  GetUncompletedOrderByuserId,
+  ConfirmPayment,
+  FetchUncompletedOrderByuserId,
   FetchAllOrders,
+  FetchAllOrderByUserId,
   FetChCustomerAndOrderDeatils,
   FetchOrdersAndProduct,
   DeleteOrder,
