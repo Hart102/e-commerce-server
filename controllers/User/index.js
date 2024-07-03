@@ -189,7 +189,7 @@ const ResetPassword = (req, res) => {
         if (response.affectedRows > 0) {
           res.json({ message: "Password updated" });
         } else {
-          res.json({ error: "Incorrect previous password" });
+          res.json({ error: "Previous password is incorrect" });
         }
       }
     );

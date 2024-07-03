@@ -7,6 +7,86 @@ const {
 const { createProductSchema } = require("../../schema/index");
 const { parseProductImages } = require("../../lib/index");
 
+const GetAllProducts = (req, res) => {
+  try {
+    connection.query("SELECT * FROM products", (error, products) => {
+      if (error) {
+        return res.json({
+          error: "something went wrong. Please try again.",
+        });
+      }
+      res.json(parseProductImages(products));
+    });
+  } catch (error) {
+    res.json({ error: "internal server error!" });
+  }
+};
+
+const GetProductsByUserId = (req, res) => {
+  try {
+    const sql =
+      "SELECT * FROM products WHERE user_id =? ORDER BY createdAt DESC";
+    connection.query(sql, [req.user.id], (error, products) => {
+      if (error) {
+        return res.json({
+          error: "something went wrong. Please try again.",
+        });
+      }
+      res.json(parseProductImages(products));
+    });
+  } catch (error) {
+    res.json({ error: "internal server error!" });
+  }
+};
+
+const GetProductById = (req, res) => {
+  try {
+    if (req.params.id) {
+      connection.query(
+        "SELECT * FROM products WHERE id=?",
+        [req.params.id],
+        (err, result) => {
+          if (err) {
+            return res.json({
+              error: "Something went wrong. Please try again.",
+            });
+          }
+          if (result.length > 0) {
+            result[0] = {
+              ...result[0],
+              imageId: JSON.parse(result[0].imageId),
+            };
+            return res.json(result[0]);
+          } else {
+            res.json({ error: "Product not found!" });
+          }
+        }
+      );
+    }
+  } catch (error) {
+    res.json({ error: "Internal server error!" });
+  }
+};
+
+const GetProductsByCategory = (req, res) => {
+  try {
+    if (req.params.category) {
+      const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
+      connection.query(sql, [req.params.category], (error, result) => {
+        if (error) {
+          return res.json({
+            error: "Something went wrong. Please try again.",
+          });
+        }
+        const products = parseProductImages(result);
+        res.json(products);
+      });
+    }
+  } catch (error) {
+    res.json({ error: "Internal server error!" });
+  }
+};
+
 const CreateProduct = async (req, res) => {
   try {
     if (req.files.length < 1 || req.files < 4) {
@@ -201,76 +281,12 @@ const DeleteProduct = (req, res) => {
   }
 };
 
-const GetProductsByUserId = (req, res) => {
-  try {
-    const sql =
-      "SELECT * FROM products WHERE user_id =? ORDER BY createdAt DESC";
-    connection.query(sql, [req.user.id], (error, products) => {
-      if (error) {
-        return res.json({
-          error: "something went wrong. Please try again.",
-        });
-      }
-      res.json(parseProductImages(products));
-    });
-  } catch (error) {
-    res.json({ error: "internal server error!" });
-  }
-};
-
-const GetProductById = (req, res) => {
-  try {
-    if (req.params.id) {
-      connection.query(
-        "SELECT * FROM products WHERE id=?",
-        [req.params.id],
-        (err, result) => {
-          if (err) {
-            return res.json({
-              error: "Something went wrong. Please try again.",
-            });
-          }
-          if (result.length > 0) {
-            result[0] = {
-              ...result[0],
-              imageId: JSON.parse(result[0].imageId),
-            };
-            return res.json(result[0]);
-          } else {
-            res.json({ error: "Product not found!" });
-          }
-        }
-      );
-    }
-  } catch (error) {
-    res.json({ error: "Internal server error!" });
-  }
-};
-
-const GetProductsByCategory = (req, res) => {
-  try {
-    if (req.params.category) {
-      const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
-      connection.query(sql, [req.params.category], (error, result) => {
-        if (error) {
-          return res.json({
-            error: "Something went wrong. Please try again.",
-          });
-        }
-        const products = parseProductImages(result);
-        res.json(products);
-      });
-    }
-  } catch (error) {
-    res.json({ error: "Internal server error!" });
-  }
-};
-
 module.exports = {
-  CreateProduct,
-  EditProduct,
-  DeleteProduct,
+  GetAllProducts,
   GetProductsByUserId,
   GetProductById,
   GetProductsByCategory,
+  CreateProduct,
+  EditProduct,
+  DeleteProduct,
 };
