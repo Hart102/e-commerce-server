@@ -4,7 +4,7 @@ const {
   register,
   login,
   CreateAddress,
-  FetchUserAddress,
+  FetchUserAndUserAddress,
   DeleteAddress,
   EditProfile,
   ResetPassword,
@@ -14,7 +14,11 @@ const authMiddleWare = require("../../auth/authMiddleware");
 router.post("/register", register);
 router.post("/login", login);
 router.post("/add-address", authMiddleWare, CreateAddress);
-router.get("/get-address", authMiddleWare, FetchUserAddress);
+router.get(
+  "/get-user-and-user-address",
+  authMiddleWare,
+  FetchUserAndUserAddress
+);
 router.patch("/edit-profile", authMiddleWare, EditProfile);
 router.patch("/reset-password", authMiddleWare, ResetPassword);
 router.delete("/delete-address/:id", authMiddleWare, DeleteAddress);

@@ -6,14 +6,17 @@ const {
   ConfirmPayment,
   FetchAllOrders,
   FetchAllOrderByUserId,
-  FetChCustomerAndOrderDeatils,
+  FetchCustomerAndOrderDetails,
   FetchOrdersAndProduct,
   DeleteOrder,
 } = require("../../controllers/transactions/index");
 const authMiddleware = require("../../auth/authMiddleware");
 
-
-router.get("/getUncompleted-payment", authMiddleware, FetchUncompletedOrderByuserId); //Done
+router.get(
+  "/getUncompleted-payment",
+  authMiddleware,
+  FetchUncompletedOrderByuserId
+); //Done
 router.post("/accept-payment", authMiddleware, AcceptPayment); //Done
 router.get("/confirm-payment", authMiddleware, ConfirmPayment); //Done
 
@@ -24,7 +27,7 @@ router.delete("/delete-order/:id", authMiddleware, DeleteOrder); //Done
 router.get(
   "/fetch-customer-and-orderDetails/:orderId",
   authMiddleware,
-  FetChCustomerAndOrderDeatils
+  FetchCustomerAndOrderDetails
 );
 router.post("/fetch-order-and-products", authMiddleware, FetchOrdersAndProduct);//Done
 

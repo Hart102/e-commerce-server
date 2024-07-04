@@ -166,7 +166,6 @@ const FetchAllOrderByUserId = (req, res) => {
 
     connection.query(sql, [req.user.id], (error, orders) => {
       if (error) {
-        console.log(error);
         return res.json({
           error: "Something went wrong. Please try again.",
         });
@@ -178,7 +177,7 @@ const FetchAllOrderByUserId = (req, res) => {
   }
 };
 
-const FetChCustomerAndOrderDeatils = (req, res) => {
+const FetchCustomerAndOrderDetails = (req, res) => {
   try {
     const sql = `SELECT * FROM orders, users, address WHERE orders.id =?  AND users.id = orders.user_id AND address.id = orders.shipping_address_id`;
     connection.query(sql, [req.params.orderId], (error, result) => {
@@ -243,7 +242,7 @@ module.exports = {
   FetchUncompletedOrderByuserId,
   FetchAllOrders,
   FetchAllOrderByUserId,
-  FetChCustomerAndOrderDeatils,
+  FetchCustomerAndOrderDetails,
   FetchOrdersAndProduct,
   DeleteOrder,
 };

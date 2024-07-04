@@ -124,18 +124,18 @@ const CreateAddress = (req, res) => {
   }
 };
 
-const FetchUserAddress = (req, res) => {
+const FetchUserAndUserAddress = (req, res) => {
   try {
     connection.query(
-      "SELECT * FROM address WHERE user_id = ? ORDER BY id DESC",
+      "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
       [req.user.id],
-      (err, address) => {
+      (err, user) => {
         if (err) {
           return res.json({
             error: "something went wrong, please try again.",
           });
         }
-        res.json(address);
+        res.json(user[0]);
       }
     );
   } catch (error) {
@@ -231,7 +231,7 @@ module.exports = {
   register,
   login,
   CreateAddress,
-  FetchUserAddress,
+  FetchUserAndUserAddress,
   EditProfile,
   ResetPassword,
   DeleteAddress,
