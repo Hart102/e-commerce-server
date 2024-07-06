@@ -135,7 +135,7 @@ const FetchUserAndUserAddress = (req, res) => {
             error: "something went wrong, please try again.",
           });
         }
-        res.json(user[0]);
+        res.json(user);
       }
     );
   } catch (error) {
