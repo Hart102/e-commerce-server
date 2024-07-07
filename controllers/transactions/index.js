@@ -179,7 +179,8 @@ const FetchAllOrderByUserId = (req, res) => {
 
 const FetchCustomerAndOrderDetails = (req, res) => {
   try {
-    const sql = `SELECT * FROM orders, users, address WHERE orders.id =?  AND users.id = orders.user_id AND address.id = orders.shipping_address_id`;
+    const sql = `SELECT * FROM orders, users, address WHERE orders.id =? 
+    AND users.id = orders.user_id AND address.id = orders.shipping_address_id`;
     connection.query(sql, [req.params.orderId], (error, result) => {
       if (error) {
         return res.json({
@@ -195,7 +196,8 @@ const FetchCustomerAndOrderDetails = (req, res) => {
 
 const FetchOrdersAndProduct = (req, res) => {
   try {
-    const sql = `SELECT * FROM orders, products WHERE orders.user_id =? AND orders.transaction_reference = ? AND products.id = orders.product_id`;
+    const sql = `SELECT * FROM orders, products WHERE orders.user_id =? 
+    AND orders.transaction_reference = ? AND products.id = orders.product_id`;
     connection.query(
       sql,
       [req.body.userId, req.body.orderId],

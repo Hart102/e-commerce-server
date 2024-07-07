@@ -22,6 +22,7 @@ const GetAllProducts = (req, res) => {
   }
 };
 
+//To be removed
 const GetProductsByUserId = (req, res) => {
   try {
     const sql =
