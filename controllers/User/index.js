@@ -1,44 +1,56 @@
 require("dotenv").config();
 const connection = require("../../config/DbConnect");
 const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 const {
-  registerationSchema,
-  loginSchema,
+  UserRegisterationationSchema,
+  UserLoginSchema,
   EditProfileSchema,
   ResetPasswordSchema,
   AddressSchema,
 } = require("../../schema/index");
 
-const register = (req, res) => {
-  const { error, value } = registerationSchema.validate(req.body);
-  if (error) {
-    return res.json({ error: error.details[0].message });
-  }
+const UserRegisteration = (req, res) => {
+  const { error, value } = UserRegisterationationSchema.validate(req.body);
 
+  if (error) {
+    return res.json({ isError: true, message: error.details[0].message });
+  }
   connection.query(
     "SELECT COUNT(*) AS count FROM users WHERE email = ?",
     [value.email],
     (err, result) => {
       if (err) {
-        return res.json({ error: "something went wrong please try again." });
+        return res.json({
+          isError: true,
+          message: "Something went wrong please try again.",
+        });
       }
-
       const emailExists = result[0].count > 0;
       if (emailExists) {
-        return res.json({ error: "email already exists" });
+        return res.json({ isError: true, message: "Email already exists" });
       }
+      const hashedPassword = bcrypt.hashSync(value.password, saltRounds);
       connection.query(
-        "INSERT INTO users (firstname, lastname, email, password) VALUES (?, ?, ?, ?)",
-        [value.firstname, value.lastname, value.email, value.password],
-        (err, result) => {
+        "INSERT INTO users (firstname, lastname, email, password, user_role) VALUES (?, ?, ?, ?, ?)",
+        [
+          value.firstname.toLowerCase(),
+          value.lastname.toLowerCase(),
+          value.email.toLowerCase(),
+          hashedPassword,
+          "customer",
+        ],
+        (err) => {
           if (err) {
             return res.json({
-              error: "something went wrong please try again.",
+              isError: true,
+              message: "Something went wrong please try again.",
             });
           }
           res.json({
-            message: "user registered successfully",
-            userId: result.insertId,
+            isError: false,
+            message: "UserRegisterationation successfull",
           });
         }
       );
@@ -46,32 +58,45 @@ const register = (req, res) => {
   );
 };
 
-const login = (req, res) => {
+const UserLogin = (req, res) => {
   try {
-    const { error, value } = loginSchema.validate(req.body);
+    const { error, value } = UserLoginSchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     connection.query(
-      "SELECT * FROM users WHERE email = ? AND password = ?",
-      [value.email, value.password],
+      "SELECT id, email, password FROM users WHERE email = ?",
+      [value.email],
       (err, result) => {
         if (err) {
-          return res.json({ error: "Internal server error" });
+          return res.json({ isError: true, message: "Internal server error" });
         }
         if (result.length === 0) {
-          return res.json({ error: "Incorrect email or password" });
+          return res.json({
+            isError: true,
+            message: "User not found",
+          });
         }
-        const token = jwt.sign(
-          { id: result[0].id, email: result[0].email },
-          process.env.Authentication_Token,
-          { expiresIn: "24h" }
-        );
-        res.json({ message: "Login successful", token });
+        const { id, email, password } = result[0];
+        const match = bcrypt.compareSync(value.password, password);
+        if (match) {
+          const payload = jwt.sign(
+            { id, email },
+            process.env.Authentication_Token,
+            { expiresIn: "24h" }
+          );
+          res.json({
+            isError: false,
+            message: "UserLogin successful",
+            payload,
+          });
+        } else {
+          res.json({ isError: true, message: "Incorrect email or password" });
+        }
       }
     );
   } catch (error) {
-    res.json({ error: "Internal server error" });
+    res.json({ isError: true, message: "Internal server error" });
   }
 };
 
@@ -124,22 +149,26 @@ const CreateAddress = (req, res) => {
   }
 };
 
+// "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
 const FetchUserAndUserAddress = (req, res) => {
   try {
-    connection.query(
-      "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
-      [req.user.id],
-      (err, user) => {
-        if (err) {
-          return res.json({
-            error: "something went wrong, please try again.",
-          });
-        }
-        res.json(user);
+    const sql = `
+      SELECT users.*, address.* 
+      FROM users 
+      LEFT JOIN address ON users.id = address.user_id 
+      WHERE users.id = ?
+    `;
+    connection.query(sql, [req.user.id], (err, user) => {
+      if (err) {
+        return res.json({
+          isError: true,
+          message: "something went wrong, please try again.",
+        });
       }
-    );
+      res.json({ isError: false, payload: user });
+    });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -147,28 +176,67 @@ const EditProfile = (req, res) => {
   try {
     const { error, value } = EditProfileSchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
+
     const { firstname, lastname, email } = value;
+
+    // Check if the email already exists
+    const checkEmailSql = "SELECT id FROM users WHERE email = ? AND id != ?";
     connection.query(
-      "UPDATE users SET firstname =?, lastname =?, email =? WHERE id =?",
-      [
-        firstname.toLowerCase(),
-        lastname.toLowerCase(),
-        email.toLowerCase(),
-        req.user.id,
-      ],
-      (error, response) => {
-        if (error) {
-          return res.json({ error: "Something went wrong, please try again." });
+      checkEmailSql,
+      [email.toLowerCase(), req.user.id],
+      (err, result) => {
+        if (err) {
+          console.log(err);
+          return res.json({
+            isError: true,
+            message: "Something went wrong, please try again.",
+          });
         }
-        if (response.affectedRows > 0) {
-          res.json({ message: "Update successful" });
+
+        if (result.length > 0) {
+          // Email already exists for another user
+          return res.json({
+            isError: true,
+            message: "Email already in use",
+          });
         }
+
+        // Proceed with the update
+        const updateSql =
+          "UPDATE users SET firstname = ?, lastname = ?, email = ? WHERE id = ?";
+        connection.query(
+          updateSql,
+          [
+            firstname.toLowerCase(),
+            lastname.toLowerCase(),
+            email.toLowerCase(),
+            req.user.id,
+          ],
+          (updateError, response) => {
+            if (updateError) {
+              console.log(updateError);
+              return res.json({
+                isError: true,
+                message: "Something went wrong, please try again.",
+              });
+            }
+
+            if (response.affectedRows > 0) {
+              res.json({ isError: false, message: "Update successful" });
+            } else {
+              res.json({
+                isError: true,
+                message: "User not found  no changes made.",
+              });
+            }
+          }
+        );
       }
     );
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "Internal server error" });
   }
 };
 
@@ -176,7 +244,7 @@ const ResetPassword = (req, res) => {
   try {
     const { error, value } = ResetPasswordSchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     const { oldPassword, newPassword } = value;
     connection.query(
@@ -184,17 +252,23 @@ const ResetPassword = (req, res) => {
       [newPassword, req.user.id, oldPassword],
       (error, response) => {
         if (error) {
-          return res.json({ error: "something went wrong, please try again." });
+          return res.json({
+            isError: true,
+            message: "something went wrong, please try again.",
+          });
         }
         if (response.affectedRows > 0) {
-          res.json({ message: "Password updated" });
+          res.json({ isError: false, message: "Password updated" });
         } else {
-          res.json({ error: "Previous password is incorrect" });
+          res.json({
+            isError: true,
+            message: "Previous password is incorrect",
+          });
         }
       }
     );
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -222,29 +296,17 @@ const DeleteAddress = (req, res) => {
 };
 
 const LogOut = (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      return res.json({
-        isError: true,
-        message: "Something went wrong, please try again.",
-      });
-    }
-    res.json({ isError: false, message: "Logged out successfully" });
-  });
+  res.clearCookie(process.env.Authentication_Token);
+  res.json({ isError: false, message: "Logged out successfully" });
 };
 
-const getUserById = (req, res) => {};
-
-const getAllUsers = (req, res) => {};
-
-const deleteUser = (req, res) => {};
-
 module.exports = {
-  register,
-  login,
+  UserRegisteration,
+  UserLogin,
   CreateAddress,
   FetchUserAndUserAddress,
   EditProfile,
   ResetPassword,
   DeleteAddress,
+  LogOut,
 };
