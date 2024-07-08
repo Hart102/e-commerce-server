@@ -6,7 +6,7 @@ const CreateCategory = (req, res) => {
   try {
     const { error, value } = categorySchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     connection.query(
       "INSERT INTO categories SET?",
@@ -14,16 +14,20 @@ const CreateCategory = (req, res) => {
       (error, result) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
         if (result.affectedRows > 0) {
-          res.json({ message: "Category created successfully!" });
+          res.json({
+            isError: false,
+            message: "Category created successfully!",
+          });
         }
       }
     );
   } catch (error) {
-    res.json("internal server error");
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -31,7 +35,7 @@ const EditCategory = (req, res) => {
   try {
     const { error, value } = categorySchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     connection.query(
       "UPDATE categories SET? WHERE id =?",
@@ -39,16 +43,20 @@ const EditCategory = (req, res) => {
       (error, result) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
         if (result.affectedRows > 0) {
-          res.json({ message: "Category updated successfully!" });
+          res.json({
+            isError: false,
+            message: "Category updated successfully!",
+          });
         }
       }
     );
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -68,13 +76,14 @@ const FetchAllCategory = (req, res) => {
     connection.query(sql, (error, result) => {
       if (error) {
         return res.json({
-          error: "Something went wrong. Please try again.",
+          isError: true,
+          message: "Something went wrong. Please try again.",
         });
       }
-      res.json(result);
+      res.json({ isError: false, payload: result });
     });
   } catch (error) {
-    res.json({ error: "Internal server error" });
+    res.json({ isError: true, message: "Internal server error" });
   }
 };
 
@@ -87,17 +96,21 @@ const DeleteCategory = (req, res) => {
         (error, result) => {
           if (error) {
             return res.json({
-              error: "Something went wrong. Please try again.",
+              isError: true,
+              message: "Something went wrong. Please try again.",
             });
           }
           if (result.affectedRows > 0) {
-            res.json({ message: "Category deleted successfully!" });
+            res.json({
+              isError: false,
+              message: "Category deleted successfully!",
+            });
           }
         }
       );
     }
   } catch (error) {
-    res.json({ error: "Internal server error" });
+    res.json({ isError: true, message: "Internal server error" });
   }
 };
 

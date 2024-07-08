@@ -8,19 +8,20 @@ const { parseProductImages } = require("../../lib");
 const FetchUncompletedOrderByuserId = (req, res) => {
   try {
     connection.query(
-      "SELECT id, payment_status FROM orders WHERE user_id = ? AND payment_status IS NULL",
+      "SELECT payment_status FROM orders WHERE user_id = ? AND payment_status IS NULL",
       [req.user.id, false],
       (error, uncompletedOrder) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
-        res.json(uncompletedOrder);
+        res.json({ isError: false, payload: uncompletedOrder });
       }
     );
   } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "Internal server error!" });
   }
 };
 
@@ -29,7 +30,7 @@ const AcceptPayment = async (req, res) => {
   try {
     const { error, value } = OrderSchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     const amountInKobo = parseFloat(value.totalPrice);
     const response = await initializePayment({
@@ -38,10 +39,12 @@ const AcceptPayment = async (req, res) => {
       name: `${req.user.firstName} ${req.user.lastName}`,
     });
     if (response.error) {
-      return res.json({ error: response.error });
+      return res.json({ isError: true, message: response.error });
     }
+    let storageCount = 0;
     if (response.data.status === true) {
       for (let i = 0; i < value.products.length; i++) {
+        storageCount++;
         connection.query(
           "INSERT INTO orders SET?",
           {
@@ -55,29 +58,37 @@ const AcceptPayment = async (req, res) => {
           (error) => {
             if (error) {
               return res.json({
-                error: "Something went wrong. Please try again.",
+                isError: true,
+                message: "Something went wrong. Please try again.",
               });
+            }
+            if (storageCount == value.products.length) {
+              res.json({
+                isError: false,
+                message: "Payment accepted successfully!",
+                payment_url: response.data.data.authorization_url,
+              });
+              storageCount = 0;
             }
           }
         );
       }
-      res.json({
-        payment_url: response.data.data.authorization_url,
-      });
     }
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
 //Done
+// abandoned;
 const ConfirmPayment = (req, res) => {
   try {
     const sql = `SELECT id, transaction_reference FROM orders WHERE id = (SELECT MAX(id) FROM orders WHERE user_id = ?)`;
     connection.query(sql, [req.user.id], async (err, order) => {
       if (err) {
         return res.json({
-          error: "Something went wrong. Please try again.",
+          isError: true,
+          message: "Something went wrong. Please try again.",
         });
       }
       const response = await axios.get(
@@ -88,28 +99,72 @@ const ConfirmPayment = (req, res) => {
       );
       const { data } = await response;
       if (data.status) {
-        connection.query(
-          "UPDATE orders SET payment_status =? WHERE transaction_reference =?",
-          [data.data.status, order[0].transaction_reference],
-          (error) => {
-            if (error) {
-              return res.json({
-                error: "Something went wrong. Please try again.",
+        if (data.data.status == "abandoned") {
+          connection.query(
+            "SELECT id FROM orders WHERE transaction_reference =?",
+            [order[0].transaction_reference],
+            (error, response) => {
+              if (error) {
+                return res.json({
+                  isError: true,
+                  message: "Something went wrong please try again.",
+                });
+              }
+              // Delete abandoned order
+              let deleteCount = 0;
+              response.map((order) => {
+                connection.query(
+                  "DELETE FROM orders WHERE id =?",
+                  [order.id],
+                  (error) => {
+                    deleteCount++;
+                    if (error) {
+                      return res.json({
+                        isError: true,
+                        message: "Something went wrong please try again.",
+                      });
+                    } else {
+                      if (deleteCount == response.length) {
+                        res.json({
+                          isError: true,
+                          message:
+                            "Payment abandoned. Please try checking out again.",
+                        });
+                        deleteCount = 0;
+                      }
+                    }
+                  }
+                );
               });
             }
-            res.json({
-              message: `Payment status: ${data.data.status}`,
-            });
-          }
-        );
+          );
+        } else {
+          connection.query(
+            "UPDATE orders SET payment_status =? WHERE transaction_reference =?",
+            [data.data.status, order[0].transaction_reference],
+            (error) => {
+              if (error) {
+                return res.json({
+                  isError: true,
+                  message: "Something went wrong. Please try again.",
+                });
+              }
+              res.json({
+                isError: false,
+                message: `Payment status: ${data.data.status}`,
+              });
+            }
+          );
+        }
       } else {
         res.json({
-          error: "Payment verification failed. Please try again.",
+          isError: true,
+          message: "Payment verification failed. Please try again.",
         });
       }
     });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -133,13 +188,14 @@ const FetchAllOrders = (req, res) => {
     connection.query(sql, (error, orders) => {
       if (error) {
         return res.json({
-          error: "Something went wrong. Please try again.",
+          isError: true,
+          message: "Something went wrong. Please try again.",
         });
       }
-      res.json(parseProductImages(orders));
+      res.json({ isError: false, payload: parseProductImages(orders) });
     });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -167,13 +223,14 @@ const FetchAllOrderByUserId = (req, res) => {
     connection.query(sql, [req.user.id], (error, orders) => {
       if (error) {
         return res.json({
-          error: "Something went wrong. Please try again.",
+          isError: true,
+          message: "Something went wrong. Please try again.",
         });
       }
-      res.json(parseProductImages(orders));
+      res.json({ isError: false, payload: parseProductImages(orders) });
     });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -184,13 +241,14 @@ const FetchCustomerAndOrderDetails = (req, res) => {
     connection.query(sql, [req.params.orderId], (error, result) => {
       if (error) {
         return res.json({
-          error: "Something went wrong. Please try again.",
+          isError: true,
+          message: "Something went wrong. Please try again.",
         });
       }
-      res.json(result[0]);
+      res.json({ isError: false, payload: result[0] });
     });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -204,14 +262,15 @@ const FetchOrdersAndProduct = (req, res) => {
       (error, result) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
-        res.json(parseProductImages(result));
+        res.json({ isError: false, payload: parseProductImages(result) });
       }
     );
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -223,18 +282,20 @@ const DeleteOrder = (req, res) => {
       (error, response) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
         if (response.affectedRows > 0) {
-          return res.json({
+          res.json({
+            isError: false,
             message: "Record deleted successfully",
           });
         }
       }
     );
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 

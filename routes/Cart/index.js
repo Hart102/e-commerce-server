@@ -1,15 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const {
-  addToCart,
-  removeFromCart,
-  getCartItems,
+  AddToCart,
+  RemoveFromCart,
+  FetchCartItems,
 } = require("../../controllers/Cart/index");
 const authMiddleware = require("../../auth/authMiddleware");
 
 router.use(authMiddleware);
-router.put("/add-to-cart", addToCart); //Done
-router.get("/get-cart-items", getCartItems); // Done
-router.delete("/remove-cart-item/:id", removeFromCart); // Done
+router.put("/add-to-cart", AddToCart); //Done
+router.get("/get-cart-items", FetchCartItems); // Done
+router.delete("/remove-cart-item/:id", RemoveFromCart); // Done
 
 module.exports = router;

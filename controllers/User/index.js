@@ -221,6 +221,18 @@ const DeleteAddress = (req, res) => {
   }
 };
 
+const LogOut = (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.json({
+        isError: true,
+        message: "Something went wrong, please try again.",
+      });
+    }
+    res.json({ isError: false, message: "Logged out successfully" });
+  });
+};
+
 const getUserById = (req, res) => {};
 
 const getAllUsers = (req, res) => {};

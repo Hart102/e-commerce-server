@@ -4,11 +4,11 @@ const connection = require("../../config/DbConnect");
 const { parseProductImages } = require("../../lib/index");
 
 /**
- * Overall, the addToCart function handles the addition of a product to a user's shopping cart,
+ * Overall, the AddToCart function handles the addition of a product to a user's shopping cart,
  * ensuring that the quantity and size of the product are updated if the item already exists in the cart.
  * If the item does not exist, a new item is added to the cart. The function also returns the total number of items in the cart for the user.
  */
-const addToCart = (req, res) => {
+const AddToCart = (req, res) => {
   try {
     if (req.body) {
       // An SQL query to update the quantity of an existing product in the cart
@@ -18,7 +18,8 @@ const addToCart = (req, res) => {
       connection.query(sql, (error, result) => {
         if (error) {
           return res.json({
-            error: "something went wrong, please try again.",
+            isError: true,
+            message: "something went wrong, please try again.",
           });
         }
         const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
@@ -27,7 +28,8 @@ const addToCart = (req, res) => {
           connection.query(countCartItems, [req.user.id], (error, result) => {
             if (error) {
               return res.json({
-                error: "something went wrong, please try again.",
+                isError: true,
+                message: "something went wrong, please try again.",
               });
             }
             res.json({ total_items: result[0].total_items });
@@ -41,10 +43,9 @@ const addToCart = (req, res) => {
             [req.user.id, req.body.quantity, req.body.productId],
             (error) => {
               if (error) {
-                console.log(error);
-
                 return res.json({
-                  error: "something went wrong. Please try again.",
+                  isError: true,
+                  message: "something went wrong. Please try again.",
                 });
               }
               // Return the total number of items in the user's cart
@@ -54,10 +55,14 @@ const addToCart = (req, res) => {
                 (error, result) => {
                   if (error) {
                     return res.json({
-                      error: "something went wrong, please try again.",
+                      isError: true,
+                      message: "something went wrong, please try again.",
                     });
                   }
-                  res.json({ total_items: result[0].total_items });
+                  res.json({
+                    isError: false,
+                    total_items: result[0].total_items,
+                  });
                 }
               );
             }
@@ -66,12 +71,12 @@ const addToCart = (req, res) => {
       });
     }
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
 // Done
-const removeFromCart = (req, res) => {
+const RemoveFromCart = (req, res) => {
   try {
     if (req.params.id) {
       connection.query(
@@ -79,31 +84,35 @@ const removeFromCart = (req, res) => {
         [req.params.id],
         (error) => {
           if (error) {
-            res.json({ error: "something went wrong please try again." });
+            res.json({
+              isError: true,
+              message: "something went wrong please try again.",
+            });
           } else {
             const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
             connection.query(countCartItems, [req.user.id], (error, result) => {
               if (error) {
                 return res.json({
-                  error: "something went wrong, please try again.",
+                  isError: true,
+                  message: "something went wrong, please try again.",
                 });
               }
-              res.json({ total_items: result[0].total_items });
+              res.json({ isError: false, total_items: result[0].total_items });
             });
           }
         }
       );
     }
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
 /**
- * Overall, the getCartItems function provides a way to retrieve items from a user's shopping cart,
+ * Overall, the FetchCartItems function provides a way to retrieve items from a user's shopping cart,
  * ensuring that only authorized users can access their own cart items and handling potential errors gracefully.
  */
-const getCartItems = (req, res) => {
+const FetchCartItems = (req, res) => {
   try {
     const sql = `
       SELECT 
@@ -111,7 +120,8 @@ const getCartItems = (req, res) => {
         products.price, 
         products.category, 
         products.images, 
-        cart.id, 
+        products.id,
+        cart.id AS cartId, 
         cart.demanded_quantity 
       FROM 
         cart
@@ -122,15 +132,15 @@ const getCartItems = (req, res) => {
     connection.query(sql, [req.user.id], (error, result) => {
       if (error) {
         return res.json({
-          error: "something went wrong please try again.",
+          isError: true,
+          message: "something went wrong please try again.",
         });
       }
-      const products = parseProductImages(result);
-      res.json(products);
+      res.json({ isError: false, payload: parseProductImages(result) });
     });
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
-module.exports = { addToCart, removeFromCart, getCartItems };
+module.exports = { AddToCart, RemoveFromCart, FetchCartItems };

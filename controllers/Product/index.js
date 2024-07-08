@@ -12,60 +12,14 @@ const GetAllProducts = (req, res) => {
     connection.query("SELECT * FROM products", (error, products) => {
       if (error) {
         return res.json({
-          error: "something went wrong. Please try again.",
+          isError: true,
+          message: "something went wrong. Please try again.",
         });
       }
-      res.json(parseProductImages(products));
+      res.json({ isError: false, payload: parseProductImages(products) });
     });
   } catch (error) {
-    res.json({ error: "internal server error!" });
-  }
-};
-
-//To be removed
-const GetProductsByUserId = (req, res) => {
-  try {
-    const sql =
-      "SELECT * FROM products WHERE user_id =? ORDER BY createdAt DESC";
-    connection.query(sql, [req.user.id], (error, products) => {
-      if (error) {
-        return res.json({
-          error: "something went wrong. Please try again.",
-        });
-      }
-      res.json(parseProductImages(products));
-    });
-  } catch (error) {
-    res.json({ error: "internal server error!" });
-  }
-};
-
-const GetProductById = (req, res) => {
-  try {
-    if (req.params.id) {
-      connection.query(
-        "SELECT * FROM products WHERE id=?",
-        [req.params.id],
-        (err, result) => {
-          if (err) {
-            return res.json({
-              error: "Something went wrong. Please try again.",
-            });
-          }
-          if (result.length > 0) {
-            result[0] = {
-              ...result[0],
-              imageId: JSON.parse(result[0].imageId),
-            };
-            return res.json(result[0]);
-          } else {
-            res.json({ error: "Product not found!" });
-          }
-        }
-      );
-    }
-  } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "internal server error!" });
   }
 };
 
@@ -76,15 +30,16 @@ const GetProductsByCategory = (req, res) => {
       connection.query(sql, [req.params.category], (error, result) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
         const products = parseProductImages(result);
-        res.json(products);
+        res.json({ isError: false, message: "", payload: products });
       });
     }
   } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "Internal server error!" });
   }
 };
 
@@ -92,13 +47,15 @@ const CreateProduct = async (req, res) => {
   try {
     if (req.files.length < 1 || req.files < 4) {
       return res.json({
-        error: "Four product images required to create post.",
+        isError: true,
+        message: "Four product images required to create post.",
       });
     }
     for (let i = 0; i < req.files.length; i++) {
       if (!req.files[i].originalname.match(/\.(jpg|jpeg|png)$/i)) {
         return res.json({
-          error: "Only JPG, JPEG, or PNG files are allowed",
+          isError: true,
+          message: "Only JPG, JPEG, or PNG files are allowed",
         });
       }
     }
@@ -119,20 +76,21 @@ const CreateProduct = async (req, res) => {
         images: JSON.stringify(uploadImageIds),
         user_id: req.user.id,
       },
-      (error, results) => {
+      (error) => {
         if (error) {
           return res.json({
-            error: "Something went wrong. Please try again.",
+            isError: true,
+            message: "Something went wrong. Please try again.",
           });
         }
         res.json({
+          isError: false,
           message: "Upload successful",
-          productId: results.insertId,
         });
       }
     );
   } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "Internal server error!" });
   }
 };
 
@@ -140,14 +98,15 @@ const EditProduct = async (req, res) => {
   try {
     const { error } = createProductSchema.validate(req.body);
     if (error) {
-      return res.json({ error: error.details[0].message });
+      return res.json({ isError: true, message: error.details[0].message });
     }
     let uploadImageIds;
     if (req.files.length > 0) {
       for (let i = 0; i < req.files.length; i++) {
         if (!req.files[i].originalname.match(/\.(jpg|jpeg|png)$/i)) {
           return res.json({
-            error: "Only JPG, JPEG, or PNG files are allowed",
+            isError: true,
+            message: "Only JPG, JPEG, or PNG files are allowed",
           });
         }
       }
@@ -178,11 +137,13 @@ const EditProduct = async (req, res) => {
         (error, response) => {
           if (error) {
             return res.json({
-              error: "Something went wrong. Please try again.",
+              isError: true,
+              message: "Something went wrong. Please try again.",
             });
           }
           if (response.affectedRows) {
             res.json({
+              isError: false,
               message: "Product edited successfully",
             });
           }
@@ -197,7 +158,8 @@ const EditProduct = async (req, res) => {
         async (error, productImages) => {
           if (error) {
             return res.json({
-              error: "Something went wrong. Please try again.",
+              isError: true,
+              message: "Something went wrong. Please try again.",
             });
           }
           productImages = JSON.parse(productImages[0].images);
@@ -223,7 +185,7 @@ const EditProduct = async (req, res) => {
       update_database(existingImageIds); //Update DB
     }
   } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "Internal server error!" });
   }
 };
 
@@ -236,7 +198,8 @@ const DeleteProduct = (req, res) => {
         async (error, result) => {
           if (error) {
             return res.json({
-              error: "Something went wrong. Please try again.",
+              isError: true,
+              message: "Something went wrong. Please try again.",
             });
           }
           if (result.length > 0) {
@@ -253,7 +216,8 @@ const DeleteProduct = (req, res) => {
               (err) => {
                 if (err) {
                   res.json({
-                    error:
+                    isError: true,
+                    message:
                       "Something went wrong while deleting item. Please try again.",
                   });
                 } else {
@@ -263,11 +227,12 @@ const DeleteProduct = (req, res) => {
                     (error) => {
                       if (error) {
                         return res.json({
-                          error:
+                          isError: true,
+                          message:
                             "Something went wrong while deleting item. Please try again.",
                         });
                       }
-                      res.json({ message: "Product deleted" });
+                      res.json({ isError: false, message: "Product deleted" });
                     }
                   );
                 }
@@ -278,16 +243,44 @@ const DeleteProduct = (req, res) => {
       );
     }
   } catch (error) {
-    res.json({ error: "Internal server error!" });
+    res.json({ isError: true, message: "Internal server error!" });
   }
 };
 
 module.exports = {
   GetAllProducts,
-  GetProductsByUserId,
-  GetProductById,
   GetProductsByCategory,
   CreateProduct,
   EditProduct,
   DeleteProduct,
 };
+
+
+// const GetProductById = (req, res) => {
+//   try {
+//     if (req.params.id) {
+//       connection.query(
+//         "SELECT * FROM products WHERE id=?",
+//         [req.params.id],
+//         (err, result) => {
+//           if (err) {
+//             return res.json({
+//               error: "Something went wrong. Please try again.",
+//             });
+//           }
+//           if (result.length > 0) {
+//             result[0] = {
+//               ...result[0],
+//               imageId: JSON.parse(result[0].imageId),
+//             };
+//             return res.json(result[0]);
+//           } else {
+//             res.json({ error: "Product not found!" });
+//           }
+//         }
+//       );
+//     }
+//   } catch (error) {
+//     res.json({ error: "Internal server error!" });
+//   }
+// };
