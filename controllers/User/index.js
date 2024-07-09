@@ -144,7 +144,6 @@ const EditProfile = (req, res) => {
           ],
           (updateError, response) => {
             if (updateError) {
-              console.log(updateError);
               return res.json({
                 isError: true,
                 message: "Something went wrong, please try again.",
