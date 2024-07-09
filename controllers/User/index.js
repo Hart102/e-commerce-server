@@ -65,7 +65,7 @@ const UserLogin = (req, res) => {
       return res.json({ isError: true, message: error.details[0].message });
     }
     connection.query(
-      "SELECT id, email, password FROM users WHERE email = ?",
+      "SELECT id, email, password, user_role FROM users WHERE email = ?",
       [value.email],
       (err, result) => {
         if (err) {
@@ -77,7 +77,7 @@ const UserLogin = (req, res) => {
             message: "User not found",
           });
         }
-        const { id, email, password } = result[0];
+        const { id, email, password, user_role } = result[0];
         const match = bcrypt.compareSync(value.password, password);
         if (match) {
           const payload = jwt.sign(
@@ -89,6 +89,7 @@ const UserLogin = (req, res) => {
             isError: false,
             message: "UserLogin successful",
             payload,
+            user_role,
           });
         } else {
           res.json({ isError: true, message: "Incorrect email or password" });
@@ -100,85 +101,12 @@ const UserLogin = (req, res) => {
   }
 };
 
-const CreateAddress = (req, res) => {
-  try {
-    const { error, value } = AddressSchema.validate(req.body);
-    if (error) {
-      return res.json({ error: error.details[0].message });
-    }
-    // Return warning message if user has two addresses
-    let sql = "SELECT COUNT(*) AS total_items FROM address WHERE user_id = ?";
-    connection.query(sql, [req.user.id], (err, result) => {
-      if (err) {
-        return res.json({
-          warning: "Something went wrong, please try again.",
-        });
-      }
-      if (result[0].total_items == 2) {
-        return res.json({
-          error: "User cannot have more than two addresses",
-        });
-      }
-      sql =
-        "INSERT INTO address (user_id, address_line, city, state, country, zip_code, phone_number) VALUES (?,?,?,?,?,?,?)";
-      connection.query(
-        sql,
-        [
-          req.user.id,
-          value.address,
-          value.city,
-          value.state,
-          value.country,
-          value.zipcode,
-          value.phone,
-        ],
-        (error, result) => {
-          if (error) {
-            return res.json({
-              error: "Something went wrong, please try again.",
-            });
-          }
-          if (result.affectedRows > 0) {
-            res.json({ message: "Address successfully added" });
-          }
-        }
-      );
-    });
-  } catch (error) {
-    res.json({ error: "Internal server error" });
-  }
-};
-
-// "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
-const FetchUserAndUserAddress = (req, res) => {
-  try {
-    const sql = `
-      SELECT users.*, address.* 
-      FROM users 
-      LEFT JOIN address ON users.id = address.user_id 
-      WHERE users.id = ?
-    `;
-    connection.query(sql, [req.user.id], (err, user) => {
-      if (err) {
-        return res.json({
-          isError: true,
-          message: "something went wrong, please try again.",
-        });
-      }
-      res.json({ isError: false, payload: user });
-    });
-  } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
-  }
-};
-
 const EditProfile = (req, res) => {
   try {
     const { error, value } = EditProfileSchema.validate(req.body);
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
-
     const { firstname, lastname, email } = value;
 
     // Check if the email already exists
@@ -272,6 +200,95 @@ const ResetPassword = (req, res) => {
   }
 };
 
+const FetchUserRole = (req, res) => {
+  try {
+    const sql = "SELECT user_role FROM users WHERE id =?";
+    connection.query(sql, [req.user.id], (err, user) => {
+      if (err) {
+        return res.json({
+          isError: true,
+          message: "something went wrong, please try again.",
+        });
+      }
+      res.json({ isError: false, payload: user });
+    });
+  } catch (error) {
+    res.json({ isError: true, message: "internal server error" });
+  }
+};
+
+// "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
+const FetchUserRoleAndUserAddress = (req, res) => {
+  try {
+    const sql = `
+      SELECT users.*, address.* 
+      FROM users 
+      LEFT JOIN address ON users.id = address.user_id 
+      WHERE users.id = ?
+    `;
+    connection.query(sql, [req.user.id], (err, user) => {
+      if (err) {
+        return res.json({
+          isError: true,
+          message: "something went wrong, please try again.",
+        });
+      }
+      res.json({ isError: false, payload: user });
+    });
+  } catch (error) {
+    res.json({ isError: true, message: "internal server error" });
+  }
+};
+
+const CreateAddress = (req, res) => {
+  try {
+    const { error, value } = AddressSchema.validate(req.body);
+    if (error) {
+      return res.json({ error: error.details[0].message });
+    }
+    // Return warning message if user has two addresses
+    let sql = "SELECT COUNT(*) AS total_items FROM address WHERE user_id = ?";
+    connection.query(sql, [req.user.id], (err, result) => {
+      if (err) {
+        return res.json({
+          warning: "Something went wrong, please try again.",
+        });
+      }
+      if (result[0].total_items == 2) {
+        return res.json({
+          error: "User cannot have more than two addresses",
+        });
+      }
+      sql =
+        "INSERT INTO address (user_id, address_line, city, state, country, zip_code, phone_number) VALUES (?,?,?,?,?,?,?)";
+      connection.query(
+        sql,
+        [
+          req.user.id,
+          value.address,
+          value.city,
+          value.state,
+          value.country,
+          value.zipcode,
+          value.phone,
+        ],
+        (error, result) => {
+          if (error) {
+            return res.json({
+              error: "Something went wrong, please try again.",
+            });
+          }
+          if (result.affectedRows > 0) {
+            res.json({ message: "Address successfully added" });
+          }
+        }
+      );
+    });
+  } catch (error) {
+    res.json({ error: "Internal server error" });
+  }
+};
+
 const DeleteAddress = (req, res) => {
   try {
     if (req.params.id) {
@@ -281,17 +298,18 @@ const DeleteAddress = (req, res) => {
         (error, response) => {
           if (error) {
             return res.json({
-              error: "Something went wrong, please try again.",
+              isError: true,
+              message: "Something went wrong, please try again.",
             });
           }
           if (response.affectedRows > 0) {
-            res.json({ message: "Deleted" });
+            res.json({ isError: true, message: "Deleted" });
           }
         }
       );
     }
   } catch (error) {
-    res.json({ error: "internal server error" });
+    res.json({ isError: true, message: "internal server error" });
   }
 };
 
@@ -303,10 +321,11 @@ const LogOut = (req, res) => {
 module.exports = {
   UserRegisteration,
   UserLogin,
-  CreateAddress,
-  FetchUserAndUserAddress,
+  FetchUserRole,
+  FetchUserRoleAndUserAddress,
   EditProfile,
   ResetPassword,
+  CreateAddress,
   DeleteAddress,
   LogOut,
 };

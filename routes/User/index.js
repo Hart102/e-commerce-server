@@ -3,11 +3,12 @@ const router = express.Router();
 const {
   UserRegisteration,
   UserLogin,
-  CreateAddress,
-  FetchUserAndUserAddress,
-  DeleteAddress,
   EditProfile,
   ResetPassword,
+  FetchUserRole,
+  FetchUserRoleAndUserAddress,
+  DeleteAddress,
+  CreateAddress,
   LogOut,
 } = require("../../controllers/User/index");
 const authMiddleWare = require("../../auth/authMiddleware");
@@ -17,12 +18,13 @@ router.post("/login", UserLogin);
 router.post("/logout", LogOut);
 router.patch("/edit-profile", authMiddleWare, EditProfile);
 router.patch("/reset-password", authMiddleWare, ResetPassword);
+router.get("/fetch-user-role", authMiddleWare, FetchUserRole);
 
 router.post("/add-address", authMiddleWare, CreateAddress);
 router.get(
   "/get-user-and-user-address",
   authMiddleWare,
-  FetchUserAndUserAddress
+  FetchUserRoleAndUserAddress
 );
 router.delete("/delete-address/:id", authMiddleWare, DeleteAddress);
 
