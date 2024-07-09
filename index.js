@@ -25,7 +25,7 @@ app.use("/api/transactions", transactions);
 app.use("/api/categories", categoryRoutes);
 
 app.get("/", (req, res) => {
-  res.send("Welcome to the e-commerce API!");
+  res.json("Welcome to the e-commerce API!");
 });
 
 app.listen(PORT, () => {
