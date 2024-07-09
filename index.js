@@ -17,6 +17,10 @@ app.use(cors({ origin: "*" }));
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
+app.get("/", (req, res) => {
+  res.json("Welcome to the e-commerce API!");
+});
+
 // ENDPOINTS
 app.use("/api/user", userRoutes);
 app.use("/api/products", productRoutes);
@@ -24,9 +28,6 @@ app.use("/api/cart", cart);
 app.use("/api/transactions", transactions);
 app.use("/api/categories", categoryRoutes);
 
-app.get("/", (req, res) => {
-  res.json("Welcome to the e-commerce API!");
-});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
