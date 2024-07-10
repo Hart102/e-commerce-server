@@ -1,5 +1,6 @@
 require("dotenv").config();
 const connection = require("../../config/DbConnect");
+const DbConnection = require("../../config/Db");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
@@ -11,158 +12,127 @@ const {
   AddressSchema,
 } = require("../../schema/index");
 
-const UserRegisteration = (req, res) => {
-  const { error, value } = UserRegisterationationSchema.validate(req.body);
-
-  if (error) {
-    return res.json({ isError: true, message: error.details[0].message });
-  }
-  connection.query(
-    "SELECT COUNT(*) AS count FROM users WHERE email = ?",
-    [value.email],
-    (err, result) => {
-      if (err) {
-        return res.json({
-          isError: true,
-          message: "Something went wrong please try again.",
-        });
-      }
-      const emailExists = result[0].count > 0;
-      if (emailExists) {
-        return res.json({ isError: true, message: "Email already exists" });
-      }
-      const hashedPassword = bcrypt.hashSync(value.password, saltRounds);
-      connection.query(
-        "INSERT INTO users (firstname, lastname, email, password, user_role) VALUES (?, ?, ?, ?, ?)",
-        [
-          value.firstname.toLowerCase(),
-          value.lastname.toLowerCase(),
-          value.email.toLowerCase(),
-          hashedPassword,
-          "customer",
-        ],
-        (err) => {
-          if (err) {
-            return res.json({
-              isError: true,
-              message: "Something went wrong please try again.",
-            });
-          }
-          res.json({
-            isError: false,
-            message: "UserRegisterationation successfull",
-          });
-        }
-      );
+const UserRegisteration = async (req, res) => {
+  try {
+    const { error, value } = UserRegisterationationSchema.validate(req.body);
+    if (error) {
+      return res.json({ isError: true, message: error.details[0].message });
     }
-  );
+    const { firstname, lastname, email, password } = value;
+    const { usersCollection } = DbConnection;
+
+    const existingUser = await usersCollection.findOne({
+      email: email.toLowerCase(),
+    });
+    if (existingUser) {
+      console.log(existingUser);
+      return res.json({ isError: true, message: "Email already exists" });
+    }
+    const hashedPassword = bcrypt.hashSync(password, saltRounds);
+    const payload = {
+      firstname: firstname.toLowerCase(),
+      lastname: lastname.toLowerCase(),
+      email: email.toLowerCase(),
+      password: hashedPassword,
+      user_role: "customer",
+      address: [],
+    };
+    const insert = await usersCollection.insertOne(payload);
+    if (!insert.acknowledged) {
+      res.json({
+        isError: true,
+        message: "Failed to register user. Please try again.",
+      });
+    } else {
+      res.json({ isError: false, message: "Registeraion successful." });
+    }
+  } catch (error) {
+    res.json({ isError: true, message: "An error occured please try again." });
+  }
 };
 
-const UserLogin = (req, res) => {
+const UserLogin = async (req, res) => {
   try {
     const { error, value } = UserLoginSchema.validate(req.body);
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
-    connection.query(
-      "SELECT id, email, password, user_role FROM users WHERE email = ?",
-      [value.email],
-      (err, result) => {
-        if (err) {
-          return res.json({ isError: true, message: "Internal server error" });
-        }
-        if (result.length === 0) {
-          return res.json({
-            isError: true,
-            message: "User not found",
-          });
-        }
-        const { id, email, password, user_role } = result[0];
-        const match = bcrypt.compareSync(value.password, password);
-        if (match) {
-          const payload = jwt.sign(
-            { id, email },
-            process.env.Authentication_Token,
-            { expiresIn: "24h" }
-          );
-          res.json({
-            isError: false,
-            message: "UserLogin successful",
-            payload,
-            user_role,
-          });
-        } else {
-          res.json({ isError: true, message: "Incorrect email or password" });
-        }
-      }
-    );
+    const { usersCollection } = await DbConnection;
+    const result = await usersCollection.findOne({
+      email: value.email.toLowerCase(),
+    });
+
+    if (result == null) {
+      return res.json({ isError: true, message: "User not found" });
+    }
+    const { _id, email, password, user_role } = result;
+    const match = bcrypt.compareSync(value.password, password);
+
+    if (match) {
+      const payload = jwt.sign(
+        { _id, email },
+        process.env.Authentication_Token,
+        { expiresIn: "24h" }
+      );
+      res.json({
+        isError: false,
+        message: "Login success",
+        payload,
+        user_role,
+      });
+    } else {
+      res.json({ isError: true, message: "Incorrect email or password" });
+    }
   } catch (error) {
-    res.json({ isError: true, message: "Internal server error" });
+    res.json({ isError: true, message: "An error occured please try again." });
   }
 };
 
-const EditProfile = (req, res) => {
+const EditProfile = async (req, res) => {
   try {
     const { error, value } = EditProfileSchema.validate(req.body);
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
+    const { usersCollection } = await DbConnection;
     const { firstname, lastname, email } = value;
+    const userId = req.user._id;
 
-    // Check if the email already exists
-    const checkEmailSql = "SELECT id FROM users WHERE email = ? AND id != ?";
-    connection.query(
-      checkEmailSql,
-      [email.toLowerCase(), req.user.id],
-      (err, result) => {
-        if (err) {
-          console.log(err);
-          return res.json({
-            isError: true,
-            message: "Something went wrong, please try again.",
-          });
-        }
+    // Check if the email already exists for another user
+    const existingEmail = await usersCollection.findOne({
+      email: email.toLowerCase(),
+      _id: { $ne: new ObjectId(userId) },
+    });
 
-        if (result.length > 0) {
-          // Email already exists for another user
-          return res.json({
-            isError: true,
-            message: "Email already in use",
-          });
-        }
+    if (existingEmail) {
+      return res.json({
+        isError: true,
+        message: "Email already in use",
+      });
+    }
 
-        // Proceed with the update
-        const updateSql =
-          "UPDATE users SET firstname = ?, lastname = ?, email = ? WHERE id = ?";
-        connection.query(
-          updateSql,
-          [
-            firstname.toLowerCase(),
-            lastname.toLowerCase(),
-            email.toLowerCase(),
-            req.user.id,
-          ],
-          (updateError, response) => {
-            if (updateError) {
-              return res.json({
-                isError: true,
-                message: "Something went wrong, please try again.",
-              });
-            }
-
-            if (response.affectedRows > 0) {
-              res.json({ isError: false, message: "Update successful" });
-            } else {
-              res.json({
-                isError: true,
-                message: "User not found  no changes made.",
-              });
-            }
-          }
-        );
+    // Proceed with the update
+    const updateResult = await usersCollection.updateOne(
+      { _id: new ObjectId(userId) },
+      {
+        $set: {
+          firstname: firstname.toLowerCase(),
+          lastname: lastname.toLowerCase(),
+          email: email.toLowerCase(),
+        },
       }
     );
+
+    if (updateResult.modifiedCount > 0) {
+      res.json({ isError: false, message: "Update successful" });
+    } else {
+      res.json({
+        isError: true,
+        message: "User not found or no changes made.",
+      });
+    }
   } catch (error) {
+    console.error("Profile update failed:", error);
     res.json({ isError: true, message: "Internal server error" });
   }
 };
@@ -217,23 +187,29 @@ const FetchUserRole = (req, res) => {
 };
 
 // "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
-const FetchUserRoleAndUserAddress = (req, res) => {
+const FetchUserRoleAndUserAddress = async (req, res) => {
   try {
-    const sql = `
-      SELECT users.*, address.* 
-      FROM users 
-      LEFT JOIN address ON users.id = address.user_id 
-      WHERE users.id = ?
-    `;
-    connection.query(sql, [req.user.id], (err, user) => {
-      if (err) {
-        return res.json({
-          isError: true,
-          message: "something went wrong, please try again.",
-        });
-      }
-      res.json({ isError: false, payload: user });
+    const { usersCollection } = await DbConnection;
+    const user = await usersCollection.findOne({
+      email: email.toLowerCase(),
+      _id: { $ne: new ObjectId(req.user._id) },
     });
+
+    // const sql = `
+    //   SELECT users.*, address.*
+    //   FROM users
+    //   LEFT JOIN address ON users.id = address.user_id
+    //   WHERE users.id = ?
+    // `;
+    // connection.query(sql, [req.user.id], (err, user) => {
+    //   if (err) {
+    //     return res.json({
+    //       isError: true,
+    //       message: "something went wrong, please try again.",
+    //     });
+    //   }
+    //   res.json({ isError: false, payload: user });
+    // });
   } catch (error) {
     res.json({ isError: true, message: "internal server error" });
   }
