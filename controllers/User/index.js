@@ -11,6 +11,7 @@ const {
   ResetPasswordSchema,
   AddressSchema,
 } = require("../../schema/index");
+const { ObjectId } = require("mongodb");
 
 const UserRegisteration = async (req, res) => {
   try {
@@ -25,7 +26,6 @@ const UserRegisteration = async (req, res) => {
       email: email.toLowerCase(),
     });
     if (existingUser) {
-      console.log(existingUser);
       return res.json({ isError: true, message: "Email already exists" });
     }
     const hashedPassword = bcrypt.hashSync(password, saltRounds);
@@ -35,7 +35,7 @@ const UserRegisteration = async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       user_role: "customer",
-      address: [],
+      addresses: [],
     };
     const insert = await usersCollection.insertOne(payload);
     if (!insert.acknowledged) {
@@ -191,9 +191,16 @@ const FetchUserRoleAndUserAddress = async (req, res) => {
   try {
     const { usersCollection } = await DbConnection;
     const user = await usersCollection.findOne({
-      email: email.toLowerCase(),
-      _id: { $ne: new ObjectId(req.user._id) },
+      _id: new ObjectId(req.user._id),
     });
+
+    if (!user == null) {
+      return res.json({
+        isError: false,
+        payload: user,
+      });
+    }
+    return {};
 
     // const sql = `
     //   SELECT users.*, address.*
