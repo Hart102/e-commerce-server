@@ -9,7 +9,9 @@ const productRoutes = require("./routes/Product/index");
 const cart = require("./routes/Cart/index");
 const transactions = require("./routes/transactions/index");
 const categoryRoutes = require("./routes/categories/index");
+const DbConnection = require("./config/Db/index");
 
+DbConnection();
 // MIDDLE WARES
 const app = express();
 app.use(express.json());

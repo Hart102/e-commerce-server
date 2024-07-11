@@ -6,7 +6,7 @@ const {
   EditProfile,
   ResetPassword,
   FetchUserRole,
-  FetchUserRoleAndUserAddress,
+  FetchUser,
   DeleteAddress,
   CreateAddress,
   LogOut,
@@ -21,11 +21,7 @@ router.patch("/reset-password", authMiddleWare, ResetPassword);
 router.get("/fetch-user-role", authMiddleWare, FetchUserRole);
 
 router.post("/add-address", authMiddleWare, CreateAddress);
-router.get(
-  "/get-user-and-user-address",
-  authMiddleWare,
-  FetchUserRoleAndUserAddress
-);
+router.get("/get-user-and-user-address", authMiddleWare, FetchUser);
 router.delete("/delete-address/:id", authMiddleWare, DeleteAddress);
 
 

@@ -1,31 +1,24 @@
 require("dotenv").config();
-const connection = require("../../config/DbConnect");
-const DbConnection = require("../../config/Db");
+const { ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
+const Users = require("../../config/Db/models/user");
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const {
-  UserRegisterationationSchema,
-  UserLoginSchema,
   EditProfileSchema,
   ResetPasswordSchema,
   AddressSchema,
 } = require("../../schema/index");
-const { ObjectId } = require("mongodb");
+const { errorResponse } = require("../../lib/index");
 
 const UserRegisteration = async (req, res) => {
   try {
-    const { error, value } = UserRegisterationationSchema.validate(req.body);
-    if (error) {
-      return res.json({ isError: true, message: error.details[0].message });
-    }
-    const { firstname, lastname, email, password } = value;
-    const { usersCollection } = DbConnection;
+    const { firstname, lastname, email, password } = req.body;
 
-    const existingUser = await usersCollection.findOne({
+    const existing_user = await Users.findOne({
       email: email.toLowerCase(),
     });
-    if (existingUser) {
+    if (existing_user) {
       return res.json({ isError: true, message: "Email already exists" });
     }
     const hashedPassword = bcrypt.hashSync(password, saltRounds);
@@ -35,42 +28,41 @@ const UserRegisteration = async (req, res) => {
       email: email.toLowerCase(),
       password: hashedPassword,
       user_role: "customer",
-      addresses: [],
     };
-    const insert = await usersCollection.insertOne(payload);
-    if (!insert.acknowledged) {
+    const user = new Users(payload);
+    const saved = await user.save();
+
+    if (saved.createdAt) {
+      delete saved.password;
       res.json({
-        isError: true,
-        message: "Failed to register user. Please try again.",
+        isError: false,
+        message: "Registeration successful",
+        payload: saved,
       });
     } else {
-      res.json({ isError: false, message: "Registeraion successful." });
+      res.json({
+        isError: true,
+        message: "Something went wrong, please try again.",
+      });
     }
   } catch (error) {
-    res.json({ isError: true, message: "An error occured please try again." });
+    errorResponse(error, res);
   }
 };
 
 const UserLogin = async (req, res) => {
   try {
-    const { error, value } = UserLoginSchema.validate(req.body);
-    if (error) {
-      return res.json({ isError: true, message: error.details[0].message });
-    }
-    const { usersCollection } = await DbConnection;
-    const result = await usersCollection.findOne({
-      email: value.email.toLowerCase(),
+    const result = await Users.findOne({
+      email: req.body.email.toLowerCase(),
     });
 
     if (result == null) {
       return res.json({ isError: true, message: "User not found" });
     }
-    const { _id, email, password, user_role } = result;
-    const match = bcrypt.compareSync(value.password, password);
-
+    const match = bcrypt.compareSync(req.body.password, result.password);
     if (match) {
       const payload = jwt.sign(
-        { _id, email },
+        { _id: result._id, email: result.email },
         process.env.Authentication_Token,
         { expiresIn: "24h" }
       );
@@ -78,13 +70,13 @@ const UserLogin = async (req, res) => {
         isError: false,
         message: "Login success",
         payload,
-        user_role,
+        user_role: result.user_role,
       });
     } else {
       res.json({ isError: true, message: "Incorrect email or password" });
     }
   } catch (error) {
-    res.json({ isError: true, message: "An error occured please try again." });
+    errorResponse(error, res);
   }
 };
 
@@ -94,35 +86,28 @@ const EditProfile = async (req, res) => {
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
-    const { usersCollection } = await DbConnection;
-    const { firstname, lastname, email } = value;
     const userId = req.user._id;
 
-    // Check if the email already exists for another user
-    const existingEmail = await usersCollection.findOne({
-      email: email.toLowerCase(),
+    const existing_email = await Users.findOne({
+      email: value.email.toLowerCase(),
       _id: { $ne: new ObjectId(userId) },
     });
-
-    if (existingEmail) {
+    if (existing_email) {
       return res.json({
         isError: true,
         message: "Email already in use",
       });
     }
-
-    // Proceed with the update
-    const updateResult = await usersCollection.updateOne(
+    const updateResult = await Users.updateOne(
       { _id: new ObjectId(userId) },
       {
         $set: {
-          firstname: firstname.toLowerCase(),
-          lastname: lastname.toLowerCase(),
-          email: email.toLowerCase(),
+          firstname: value.firstname.toLowerCase(),
+          lastname: value.lastname.toLowerCase(),
+          email: value.email.toLowerCase(),
         },
       }
     );
-
     if (updateResult.modifiedCount > 0) {
       res.json({ isError: false, message: "Update successful" });
     } else {
@@ -132,166 +117,125 @@ const EditProfile = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("Profile update failed:", error);
-    res.json({ isError: true, message: "Internal server error" });
+    errorResponse(error, res);
   }
 };
 
-const ResetPassword = (req, res) => {
+const ResetPassword = async (req, res) => {
   try {
     const { error, value } = ResetPasswordSchema.validate(req.body);
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
     const { oldPassword, newPassword } = value;
-    connection.query(
-      "UPDATE users SET password =? WHERE id =? AND password =?",
-      [newPassword, req.user.id, oldPassword],
-      (error, response) => {
-        if (error) {
-          return res.json({
-            isError: true,
-            message: "something went wrong, please try again.",
-          });
-        }
-        if (response.affectedRows > 0) {
-          res.json({ isError: false, message: "Password updated" });
-        } else {
-          res.json({
-            isError: true,
-            message: "Previous password is incorrect",
-          });
-        }
-      }
-    );
-  } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
-  }
-};
 
-const FetchUserRole = (req, res) => {
-  try {
-    const sql = "SELECT user_role FROM users WHERE id =?";
-    connection.query(sql, [req.user.id], (err, user) => {
-      if (err) {
-        return res.json({
-          isError: true,
-          message: "something went wrong, please try again.",
-        });
-      }
-      res.json({ isError: false, payload: user });
-    });
-  } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
-  }
-};
-
-// "SELECT * FROM users, address WHERE users.id =? AND address.user_id = users.id",
-const FetchUserRoleAndUserAddress = async (req, res) => {
-  try {
-    const { usersCollection } = await DbConnection;
-    const user = await usersCollection.findOne({
-      _id: new ObjectId(req.user._id),
-    });
-
-    if (!user == null) {
-      return res.json({
-        isError: false,
-        payload: user,
-      });
+    const user = await Users.findOne({ _id: new ObjectId(req.user._id) });
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      res.json({ isError: true, message: "Previous password is incorrect" });
+      return;
     }
-    return {};
-
-    // const sql = `
-    //   SELECT users.*, address.*
-    //   FROM users
-    //   LEFT JOIN address ON users.id = address.user_id
-    //   WHERE users.id = ?
-    // `;
-    // connection.query(sql, [req.user.id], (err, user) => {
-    //   if (err) {
-    //     return res.json({
-    //       isError: true,
-    //       message: "something went wrong, please try again.",
-    //     });
-    //   }
-    //   res.json({ isError: false, payload: user });
-    // });
+    const hashedPassword = bcrypt.hashSync(newPassword, saltRounds);
+    const password_update = await Users.updateOne(
+      { _id: new ObjectId(req.user._id) },
+      { $set: { password: hashedPassword } }
+    );
+    if (password_update.modifiedCount > 0) {
+      res.json({ isError: false, message: "Password updated" });
+    } else {
+      res.json({ isError: true, message: "User not found" });
+    }
   } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
+    errorResponse(error, res);
   }
 };
 
-const CreateAddress = (req, res) => {
+const FetchUser = async (req, res) => {
+  try {
+    const user = await Users.findOne({ _id: new ObjectId(req.user._id) });
+    if (!user) {
+      res.json({ isError: true, message: "User not found" });
+      return;
+    }
+    delete user.password;
+    res.json({ isError: false, payload: user });
+  } catch (error) {
+    errorResponse(error, res);
+  }
+};
+
+const FetchUserRole = async (req, res) => {
+  try {
+    const user_role = await Users.findOne(
+      { _id: new ObjectId(req.user._id) },
+      { projection: { user_role: 1, _id: 0 } }
+    );
+    if (user_role == null) {
+      res.json({ isError: false, payload: {} });
+      return;
+    }
+    res.json({ isError: false, payload: user_role });
+  } catch (error) {
+    errorResponse(error, res);
+  }
+};
+
+const CreateAddress = async (req, res) => {
   try {
     const { error, value } = AddressSchema.validate(req.body);
     if (error) {
       return res.json({ error: error.details[0].message });
     }
-    // Return warning message if user has two addresses
-    let sql = "SELECT COUNT(*) AS total_items FROM address WHERE user_id = ?";
-    connection.query(sql, [req.user.id], (err, result) => {
-      if (err) {
-        return res.json({
-          warning: "Something went wrong, please try again.",
-        });
-      }
-      if (result[0].total_items == 2) {
-        return res.json({
-          error: "User cannot have more than two addresses",
-        });
-      }
-      sql =
-        "INSERT INTO address (user_id, address_line, city, state, country, zip_code, phone_number) VALUES (?,?,?,?,?,?,?)";
-      connection.query(
-        sql,
-        [
-          req.user.id,
-          value.address,
-          value.city,
-          value.state,
-          value.country,
-          value.zipcode,
-          value.phone,
-        ],
-        (error, result) => {
-          if (error) {
-            return res.json({
-              error: "Something went wrong, please try again.",
-            });
-          }
-          if (result.affectedRows > 0) {
-            res.json({ message: "Address successfully added" });
-          }
-        }
+    const user = await Users.findOne(
+      { _id: new ObjectId(req.user._id) },
+      { addresses: 1 }
+    );
+    if (user.addresses.length > 2) {
+      res.json({
+        isError: true,
+        message: "User cannot have more than two addresses",
+      });
+    } else {
+      user.addresses.push({ ...value, _id: user?.addresses?.length });
+      const save = await Users.updateOne(
+        { _id: new ObjectId(req.user._id) },
+        { $set: { addresses: user.addresses } }
       );
-    });
+      if (save.modifiedCount > 0) {
+        res.json({
+          isError: false,
+          message: "Address successfully added",
+        });
+      }
+    }
   } catch (error) {
-    res.json({ error: "Internal server error" });
+    errorResponse(error, res);
   }
 };
 
-const DeleteAddress = (req, res) => {
+const DeleteAddress = async (req, res) => {
   try {
     if (req.params.id) {
-      connection.query(
-        "DELETE FROM address WHERE id = ?",
-        [req.params.id],
-        (error, response) => {
-          if (error) {
-            return res.json({
-              isError: true,
-              message: "Something went wrong, please try again.",
-            });
-          }
-          if (response.affectedRows > 0) {
-            res.json({ isError: true, message: "Deleted" });
-          }
-        }
+      const user = await Users.findOneAndUpdate(
+        { _id: new ObjectId(req.user._id) },
+        { $pull: { addresses: { _id: new ObjectId(req.params.id) } } },
+        { new: true }
       );
+      const filtered_addresses = user.addresses.filter(
+        (address) => address._id !== req.params._id
+      );
+      const saved = await Users.updateOne(
+        { _id: new ObjectId(req.user._id) },
+        { $set: { addresses: filtered_addresses } }
+      );
+      if (saved.modifiedCount > 0) {
+        res.json({ isError: false, message: "Deleted" });
+      } else {
+        res.json({ isError: true, message: "Address not found" });
+      }
     }
   } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
+    errorResponse(error, res);
   }
 };
 
@@ -304,7 +248,7 @@ module.exports = {
   UserRegisteration,
   UserLogin,
   FetchUserRole,
-  FetchUserRoleAndUserAddress,
+  FetchUser,
   EditProfile,
   ResetPassword,
   CreateAddress,

@@ -1,16 +1,5 @@
 const Joi = require("joi");
 
-const UserRegisterationationSchema = Joi.object().keys({
-  firstname: Joi.string().required(),
-  lastname: Joi.string().required(),
-  email: Joi.string().email().required(),
-  password: Joi.string().min(4).required(),
-});
-
-const UserLoginSchema = Joi.object().keys({
-  email: Joi.string().email().required(),
-  password: Joi.string().required(),
-});
 
 const EditProfileSchema = Joi.object().keys({
   firstname: Joi.string().required(),
@@ -24,7 +13,7 @@ const ResetPasswordSchema = Joi.object().keys({
 });
 
 const AddressSchema = Joi.object().keys({
-  address: Joi.string().required(),
+  address_line: Joi.string().required(),
   city: Joi.string().required(),
   country: Joi.string().required(),
   state: Joi.string().required(),
@@ -67,8 +56,6 @@ const categorySchema = Joi.object().keys({
 });
 
 module.exports = {
-  UserRegisterationationSchema,
-  UserLoginSchema,
   EditProfileSchema,
   ResetPasswordSchema,
   AddressSchema,

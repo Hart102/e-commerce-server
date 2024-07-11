@@ -5,41 +5,16 @@ const {
   AppWriteFilesUploader,
 } = require("../../config/appWrite/index");
 const { createProductSchema } = require("../../schema/index");
-const { parseProductImages } = require("../../lib/index");
+const { ObjectId } = require("mongodb");
+const { parseProductImages, errorResponse } = require("../../lib/index");
+const Products = require("../../config/Db/models/products");
 
-const GetAllProducts = (req, res) => {
+const GetAllProducts = async (req, res) => {
   try {
-    connection.query("SELECT * FROM products", (error, products) => {
-      if (error) {
-        return res.json({
-          isError: true,
-          message: "something went wrong. Please try again.",
-        });
-      }
-      res.json({ isError: false, payload: parseProductImages(products) });
-    });
+    const products = await Products.find();
+    res.json({ isError: false, payload: parseProductImages(products) });
   } catch (error) {
-    res.json({ isError: true, message: "internal server error!" });
-  }
-};
-
-const GetProductsByCategory = (req, res) => {
-  try {
-    if (req.params.category) {
-      const sql = `SELECT * FROM products WHERE category=? ORDER BY createdAt DESC`;
-      connection.query(sql, [req.params.category], (error, result) => {
-        if (error) {
-          return res.json({
-            isError: true,
-            message: "Something went wrong. Please try again.",
-          });
-        }
-        const products = parseProductImages(result);
-        res.json({ isError: false, message: "", payload: products });
-      });
-    }
-  } catch (error) {
-    res.json({ isError: true, message: "Internal server error!" });
+    errorResponse(error, res);
   }
 };
 
@@ -59,38 +34,24 @@ const CreateProduct = async (req, res) => {
         });
       }
     }
-    const { error, value } = createProductSchema.validate(req.body);
-    if (error) {
-      return res.json({ error: error.details[0].message });
-    }
-    const uploadImageIds = await AppWriteFilesUploader(req.files);
-    connection.query(
-      "INSERT INTO products SET ?",
-      {
-        name: value.name.toLowerCase(),
-        price: value.price,
-        description: value.description.toLowerCase(),
-        category: value.category.toLowerCase(),
-        quantity: Number(value.quantity),
-        status: value.status,
-        images: JSON.stringify(uploadImageIds),
-        user_id: req.user.id,
-      },
-      (error) => {
-        if (error) {
-          return res.json({
-            isError: true,
-            message: "Something went wrong. Please try again.",
-          });
-        }
-        res.json({
-          isError: false,
-          message: "Upload successful",
-        });
-      }
-    );
+    const uploadedImageIds = await AppWriteFilesUploader(req.files);
+    const new_product = new Products({
+      name: req.body.name.toLowerCase(),
+      price: req.body.price,
+      description: req.body.description.toLowerCase(),
+      category: req.body.category.toLowerCase(),
+      quantity: Number(req.body.quantity),
+      status: req.body.status,
+      images: JSON.stringify(uploadedImageIds),
+      user_id: req.user._id,
+    });
+    await new_product.save();
+    res.json({
+      isError: false,
+      message: "Upload successful",
+    });
   } catch (error) {
-    res.json({ isError: true, message: "Internal server error!" });
+    errorResponse(error, res);
   }
 };
 
@@ -117,131 +78,141 @@ const EditProduct = async (req, res) => {
       }
     }
     // REUSED
-    const update_database = (images) => {
+    const updateDatabase = async (images) => {
       const { id, name, price, description, category, quantity, status } =
         req.body;
-      connection.query(
-        `UPDATE products 
-            SET name = ?, price = ?, description = ?, category = ?, quantity = ?, status = ?, images = ? 
-            WHERE id = ?`,
-        [
-          name.toLowerCase(),
-          price,
-          description.toLowerCase(),
-          category.toLowerCase(),
-          quantity,
-          status.toLowerCase(),
-          JSON.stringify(images),
-          id,
-        ],
-        (error, response) => {
-          if (error) {
-            return res.json({
-              isError: true,
-              message: "Something went wrong. Please try again.",
-            });
-          }
-          if (response.affectedRows) {
-            res.json({
-              isError: false,
-              message: "Product edited successfully",
-            });
-          }
-        }
-      );
+      const update = {
+        name: name.toLowerCase(),
+        price,
+        description: description.toLowerCase(),
+        category: category.toLowerCase(),
+        quantity,
+        status: status.toLowerCase(),
+        images: JSON.stringify(images),
+      };
+      const result = await Products.updateOne({ _id: id }, update);
+
+      if (result.modifiedCount > 0) {
+        res.json({
+          isError: false,
+          message: "Product edited successfully",
+        });
+      } else {
+        res.json({
+          isError: true,
+          message: "Something went wrong. Please try again.",
+        });
+      }
     };
     if (uploadImageIds !== undefined) {
       const replacedImageIds = JSON.parse(req.body.replacedImageIds);
-      connection.query(
-        "SELECT images FROM products WHERE id =?",
-        [req.body.id],
-        async (error, productImages) => {
-          if (error) {
-            return res.json({
-              isError: true,
-              message: "Something went wrong. Please try again.",
-            });
-          }
-          productImages = JSON.parse(productImages[0].images);
-          const changedImages = (images) => {
-            if (images) {
-              for (let i = 0; i < images.length; i++) {
-                for (let j = 0; j < replacedImageIds.length; j++) {
-                  if (images[i] === replacedImageIds[j]) {
-                    images[i] = uploadImageIds[j];
-                    break;
-                  }
-                }
+      const product = await Products.findById(req.body.id);
+
+      const productImages = JSON.parse(product.images);
+      const changedImages = (images) => {
+        if (images) {
+          for (let i = 0; i < images.length; i++) {
+            for (let j = 0; j < replacedImageIds.length; j++) {
+              if (images[i] === replacedImageIds[j]) {
+                images[i] = uploadImageIds[j];
+                break;
               }
-              return images;
             }
-          };
-          const updatedImageIds = changedImages(productImages);
-          update_database(updatedImageIds); //Update DB
+          }
+          return images;
         }
-      );
+      };
+      const updatedImageIds = changedImages(productImages);
+      await updateDatabase(updatedImageIds); // Update DB with New Images
     } else {
       const existingImageIds = JSON.parse(req.body.images);
-      update_database(existingImageIds); //Update DB
+      updateDatabase(existingImageIds); //Update DB With Existing Images
     }
   } catch (error) {
-    res.json({ isError: true, message: "Internal server error!" });
+    errorResponse(error, res);
   }
 };
 
-const DeleteProduct = (req, res) => {
+const GetProductsByCategory = async (req, res) => {
   try {
-    if (req.params.id) {
-      connection.query(
-        "SELECT id, images FROM products WHERE id = ?",
-        [req.params.id],
-        async (error, result) => {
-          if (error) {
-            return res.json({
-              isError: true,
-              message: "Something went wrong. Please try again.",
-            });
-          }
-          if (result.length > 0) {
-            result[0] = {
-              ...result[0],
-              images: JSON.parse(result[0].images),
-            };
-            for (const image_id of result[0].images) {
-              await storage.deleteFile(process.env.Appwrite_BucketId, image_id);
-            }
-            connection.query(
-              "DELETE FROM cart WHERE productId=?",
-              [req.params.id],
-              (err) => {
-                if (err) {
-                  res.json({
-                    isError: true,
-                    message:
-                      "Something went wrong while deleting item. Please try again.",
-                  });
-                } else {
-                  connection.query(
-                    "DELETE FROM `products` WHERE id=?",
-                    [req.params.id],
-                    (error) => {
-                      if (error) {
-                        return res.json({
-                          isError: true,
-                          message:
-                            "Something went wrong while deleting item. Please try again.",
-                        });
-                      }
-                      res.json({ isError: false, message: "Product deleted" });
-                    }
-                  );
-                }
-              }
-            );
-          }
-        }
-      );
+    const category = req.params.category.toLowerCase();
+    const products = await Products.find({ category }).sort({ createdAt: -1 });
+    const parsedProducts = parseProductImages(products);
+
+    res.json({ isError: false, message: "", payload: parsedProducts });
+  } catch (error) {
+    errorResponse(error, res);
+  }
+};
+
+const DeleteProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+
+    if (!productId) {
+      res.json({ isError: true, message: "Product Id is required." });
+      return;
     }
+    let product = await Product.findOne({ _id: new ObjectId(productId) });
+    if (!product) {
+      return res.json({ isError: true, message: "Product not found." });
+    }
+    const productImages = JSON.parse(product.images);
+    for (const imageId of productImages) {
+      await storage.deleteFile(process.env.Appwrite_BucketId, imageId);
+    }
+
+    // if (req.params.id) {
+    //   connection.query(
+    //     "SELECT id, images FROM products WHERE id = ?",
+    //     [req.params.id],
+    //     async (error, result) => {
+    //       if (error) {
+    //         return res.json({
+    //           isError: true,
+    //           message: "Something went wrong. Please try again.",
+    //         });
+    //       }
+    //       if (result.length > 0) {
+    //         result[0] = {
+    //           ...result[0],
+    //           images: JSON.parse(result[0].images),
+    //         };
+    //         for (const image_id of result[0].images) {
+    //           await storage.deleteFile(process.env.Appwrite_BucketId, image_id);
+    //         }
+    //         connection.query(
+    //           "DELETE FROM cart WHERE productId=?",
+    //           [req.params.id],
+    //           (err) => {
+    //             if (err) {
+    //               res.json({
+    //                 isError: true,
+    //                 message:
+    //                   "Something went wrong while deleting item. Please try again.",
+    //               });
+    //             } else {
+    //               connection.query(
+    //                 "DELETE FROM `products` WHERE id=?",
+    //                 [req.params.id],
+    //                 (error) => {
+    //                   if (error) {
+    //                     return res.json({
+    //                       isError: true,
+    //                       message:
+    //                         "Something went wrong while deleting item. Please try again.",
+    //                     });
+    //                   }
+    //                   res.json({ isError: false, message: "Product deleted" });
+    //                 }
+    //               );
+    //             }
+    //           }
+    //         );
+    //       }
+    //     }
+    //   );
+    // }
   } catch (error) {
     res.json({ isError: true, message: "Internal server error!" });
   }
