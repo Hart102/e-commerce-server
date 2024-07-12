@@ -1,7 +1,9 @@
 require("dotenv").config();
-const jwt = require("jsonwebtoken");
+// const jwt = require("jsonwebtoken");
+const mongoose = require("mongoose");
 const connection = require("../../config/DbConnect");
 const Cart = require("../../config/Db/models/cart");
+
 const { parseProductImages, errorResponse } = require("../../lib/index");
 
 /**
@@ -14,17 +16,23 @@ const AddToCart = async (req, res) => {
     if (req.body) {
       const { quantity, product_id } = req.body;
       const updateResult = await Cart.updateOne(
-        { user_id: req.user.id, productId: product_id },
+        {
+          user_id: mongoose.Types.ObjectId(req.user._id),
+          productId: mongoose.Types.ObjectId(product_id),
+        },
         { $inc: { demanded_quantity: Number(quantity) } }
       );
+
       if (updateResult.modifiedCount > 0) {
-        const totalItems = await Cart.countDocuments({ user_id: req.user._id });
+        const totalItems = await Cart.countDocuments({
+          user_id: mongoose.Types.ObjectId(req.user._id),
+        });
         console.log(totalItems);
 
-        return res.json({
+        res.json({
           isError: false,
           total_items: totalItems,
-          message: "Product quantity updated in cart successfully.",
+          message: "Order updated",
         });
       } else {
         const newCartItem = new Cart({
@@ -33,10 +41,12 @@ const AddToCart = async (req, res) => {
           productId: product_id,
         });
         await newCartItem.save();
-        const totalItems = await Cart.countDocuments({ user_id: req.user._id });
+        const totalItems = await Cart.countDocuments({
+          user_id: mongoose.Types.ObjectId(req.user._id),
+        });
         console.log(totalItems);
 
-        return res.json({
+        res.json({
           isError: false,
           total_items: totalItems,
           message: "Product added to cart successfully.",
@@ -122,7 +132,7 @@ const AddToCart = async (req, res) => {
       // });
     }
   } catch (error) {
-    console.log(error.message);
+    console.log(error);
     errorResponse(error, res);
   }
 };
