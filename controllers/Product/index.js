@@ -1,18 +1,46 @@
 require("dotenv").config();
-const connection = require("../../config/DbConnect");
+const mongoose = require("mongoose");
+const { ObjectId } = require("mongodb");
+const Products = require("../../config/Db/models/products");
+const Cart = require("../../config/Db/models/cart");
+const { createProductSchema } = require("../../schema/index");
+const { errorResponse } = require("../../lib/index");
 const {
   storage,
   AppWriteFilesUploader,
 } = require("../../config/appWrite/index");
-const { createProductSchema } = require("../../schema/index");
-const { ObjectId } = require("mongodb");
-const { parseProductImages, errorResponse } = require("../../lib/index");
-const Products = require("../../config/Db/models/products");
 
 const GetAllProducts = async (req, res) => {
   try {
-    const products = await Products.find();
-    res.json({ isError: false, payload: parseProductImages(products) });
+    const products = await Products.aggregate([
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "categoryDetails",
+        },
+      },
+      {
+        $unwind: "$categoryDetails",
+      },
+      {
+        $project: {
+          name: 1,
+          price: 1,
+          description: 1,
+          quantity: 1,
+          status: 1,
+          images: 1,
+          user_id: 1,
+          category: "$categoryDetails.name",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    ]);
+
+    res.json({ isError: false, payload: products });
   } catch (error) {
     errorResponse(error, res);
   }
@@ -23,7 +51,7 @@ const CreateProduct = async (req, res) => {
     if (req.files.length < 1 || req.files < 4) {
       return res.json({
         isError: true,
-        message: "Four product images required to create post.",
+        message: "Four images are required to create post.",
       });
     }
     for (let i = 0; i < req.files.length; i++) {
@@ -42,7 +70,7 @@ const CreateProduct = async (req, res) => {
       category: req.body.category.toLowerCase(),
       quantity: Number(req.body.quantity),
       status: req.body.status,
-      images: JSON.stringify(uploadedImageIds),
+      images: uploadedImageIds,
       user_id: req.user._id,
     });
     await new_product.save();
@@ -88,7 +116,7 @@ const EditProduct = async (req, res) => {
         category: category.toLowerCase(),
         quantity,
         status: status.toLowerCase(),
-        images: JSON.stringify(images),
+        images: images,
       };
       const result = await Products.updateOne({ _id: id }, update);
 
@@ -133,13 +161,60 @@ const EditProduct = async (req, res) => {
   }
 };
 
+//Unused
+const GetProductById = async (req, res) => {
+  try {
+    const product = await Products.findOne({
+      _id: new ObjectId(req.params.id),
+    });
+    if (!product) {
+      res.json({ isError: true, message: "Product not found." });
+      return;
+    }
+    res.json({ isError: false, payload: product });
+  } catch (error) {
+    errorResponse(error, res);
+  }
+};
+
 const GetProductsByCategory = async (req, res) => {
   try {
     const category = req.params.category.toLowerCase();
-    const products = await Products.find({ category }).sort({ createdAt: -1 });
-    const parsedProducts = parseProductImages(products);
+    const products = await Products.aggregate([
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "categoryDetails",
+        },
+      },
+      {
+        $unwind: "$categoryDetails",
+      },
+      {
+        $match: { "categoryDetails.name": category },
+      },
+      {
+        $project: {
+          name: 1,
+          price: 1,
+          description: 1,
+          quantity: 1,
+          status: 1,
+          images: 1,
+          user_id: 1,
+          category: "$categoryDetails.name",
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+      {
+        $sort: { createdAt: -1 },
+      },
+    ]);
 
-    res.json({ isError: false, message: "", payload: parsedProducts });
+    res.json({ isError: false, payload: products });
   } catch (error) {
     errorResponse(error, res);
   }
@@ -153,105 +228,45 @@ const DeleteProduct = async (req, res) => {
       res.json({ isError: true, message: "Product Id is required." });
       return;
     }
-    let product = await Product.findOne({ _id: new ObjectId(productId) });
+    let product = await Products.findOne({ _id: new ObjectId(productId) });
     if (!product) {
-      return res.json({ isError: true, message: "Product not found." });
+      res.json({ isError: true, message: "Product not found." });
+      return;
     }
-    const productImages = JSON.parse(product.images);
+    const productImages = product.images;
     for (const imageId of productImages) {
       await storage.deleteFile(process.env.Appwrite_BucketId, imageId);
     }
+    const deleteProductFromCart = await Cart.deleteOne({
+      productId: new mongoose.Types.ObjectId(productId),
+    });
 
-    // if (req.params.id) {
-    //   connection.query(
-    //     "SELECT id, images FROM products WHERE id = ?",
-    //     [req.params.id],
-    //     async (error, result) => {
-    //       if (error) {
-    //         return res.json({
-    //           isError: true,
-    //           message: "Something went wrong. Please try again.",
-    //         });
-    //       }
-    //       if (result.length > 0) {
-    //         result[0] = {
-    //           ...result[0],
-    //           images: JSON.parse(result[0].images),
-    //         };
-    //         for (const image_id of result[0].images) {
-    //           await storage.deleteFile(process.env.Appwrite_BucketId, image_id);
-    //         }
-    //         connection.query(
-    //           "DELETE FROM cart WHERE productId=?",
-    //           [req.params.id],
-    //           (err) => {
-    //             if (err) {
-    //               res.json({
-    //                 isError: true,
-    //                 message:
-    //                   "Something went wrong while deleting item. Please try again.",
-    //               });
-    //             } else {
-    //               connection.query(
-    //                 "DELETE FROM `products` WHERE id=?",
-    //                 [req.params.id],
-    //                 (error) => {
-    //                   if (error) {
-    //                     return res.json({
-    //                       isError: true,
-    //                       message:
-    //                         "Something went wrong while deleting item. Please try again.",
-    //                     });
-    //                   }
-    //                   res.json({ isError: false, message: "Product deleted" });
-    //                 }
-    //               );
-    //             }
-    //           }
-    //         );
-    //       }
-    //     }
-    //   );
-    // }
+    if (deleteProductFromCart.acknowledged) {
+      const deleteProduct = await Products.deleteOne({
+        _id: new ObjectId(productId),
+      });
+      if (deleteProduct.acknowledged) {
+        res.json({
+          isError: false,
+          message: "Product deleted successfully",
+        });
+      } else {
+        res.json({
+          isError: true,
+          message: "Failed to delete product from cart. Please try again.",
+        });
+      }
+    }
   } catch (error) {
-    res.json({ isError: true, message: "Internal server error!" });
+    errorResponse(error, res);
   }
 };
 
 module.exports = {
   GetAllProducts,
-  GetProductsByCategory,
   CreateProduct,
   EditProduct,
+  GetProductById,
+  GetProductsByCategory,
   DeleteProduct,
 };
-
-
-// const GetProductById = (req, res) => {
-//   try {
-//     if (req.params.id) {
-//       connection.query(
-//         "SELECT * FROM products WHERE id=?",
-//         [req.params.id],
-//         (err, result) => {
-//           if (err) {
-//             return res.json({
-//               error: "Something went wrong. Please try again.",
-//             });
-//           }
-//           if (result.length > 0) {
-//             result[0] = {
-//               ...result[0],
-//               imageId: JSON.parse(result[0].imageId),
-//             };
-//             return res.json(result[0]);
-//           } else {
-//             res.json({ error: "Product not found!" });
-//           }
-//         }
-//       );
-//     }
-//   } catch (error) {
-//     res.json({ error: "Internal server error!" });
-//   }
-// };

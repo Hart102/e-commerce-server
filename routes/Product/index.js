@@ -1,21 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const { fileuploader } = require("../../config/appWrite/index");
+const authMiddleware = require("../../auth/authMiddleware");
 const {
   CreateProduct,
   DeleteProduct,
   EditProduct,
   GetAllProducts,
-  // GetProductById,
+  GetProductById,
   GetProductsByCategory,
 } = require("../../controllers/Product/index");
-const authMiddleware = require("../../auth/authMiddleware");
 
 router.get("/", GetAllProducts);
-router.put("/create", authMiddleware, fileuploader, CreateProduct); //Done
-router.put("/edit", authMiddleware, fileuploader, EditProduct); //Done
-router.delete("/delete/:id", authMiddleware, DeleteProduct); //Done
-// router.get("/getProductById/:id", GetProductById);
+router.get("/:id", GetProductById);
+
+router.put("/create", authMiddleware, fileuploader, CreateProduct);
+router.put("/edit", authMiddleware, fileuploader, EditProduct);
+router.delete("/delete/:id", authMiddleware, DeleteProduct);
 router.get("/category/:category", GetProductsByCategory);
 
 module.exports = router;

@@ -1,9 +1,7 @@
 require("dotenv").config();
-// const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const connection = require("../../config/DbConnect");
 const Cart = require("../../config/Db/models/cart");
-
 const { parseProductImages, errorResponse } = require("../../lib/index");
 
 /**
@@ -11,24 +9,24 @@ const { parseProductImages, errorResponse } = require("../../lib/index");
  * ensuring that the quantity and size of the product are updated if the item already exists in the cart.
  * If the item does not exist, a new item is added to the cart. The function also returns the total number of items in the cart for the user.
  */
+
+//Done
 const AddToCart = async (req, res) => {
   try {
     if (req.body) {
       const { quantity, product_id } = req.body;
       const updateResult = await Cart.updateOne(
         {
-          user_id: mongoose.Types.ObjectId(req.user._id),
-          productId: mongoose.Types.ObjectId(product_id),
+          user_id: new mongoose.Types.ObjectId(req.user._id),
+          productId: new mongoose.Types.ObjectId(product_id),
         },
         { $inc: { demanded_quantity: Number(quantity) } }
       );
 
       if (updateResult.modifiedCount > 0) {
         const totalItems = await Cart.countDocuments({
-          user_id: mongoose.Types.ObjectId(req.user._id),
+          user_id: new mongoose.Types.ObjectId(req.user._id),
         });
-        console.log(totalItems);
-
         res.json({
           isError: false,
           total_items: totalItems,
@@ -42,97 +40,16 @@ const AddToCart = async (req, res) => {
         });
         await newCartItem.save();
         const totalItems = await Cart.countDocuments({
-          user_id: mongoose.Types.ObjectId(req.user._id),
+          user_id: new mongoose.Types.ObjectId(req.user._id),
         });
-        console.log(totalItems);
-
         res.json({
           isError: false,
           total_items: totalItems,
           message: "Product added to cart successfully.",
         });
       }
-
-      // if (cartItem) {
-      //   cartItem.demanded_quantity += Number(quantity);
-      //   await cartItem.save();
-      //   await Cart.updateOne({user_id: })
-      // } else {
-      //   cartItem = new Cart({
-      //     user_id: req.user._id,
-      //     demanded_quantity: Number(quantity),
-      //     productId: product_id,
-      //   });
-      //   await cartItem.save();
-      // }
-      // const totalItems = await Cart.countDocuments({ user_id: req.user._id });
-      // res.json({
-      //   isError: false,
-      //   total_items: totalItems,
-      //   message: "Product added to cart successfully.",
-      // });
-
-      // // An SQL query to update the quantity of an existing product in the cart
-      // let sql = `UPDATE cart SET demanded_quantity = demanded_quantity + ${Number(
-      //   req.body.quantity
-      // )} WHERE user_id = ${req.user.id} AND productId = ${req.body.productId}`;
-      // connection.query(sql, (error, result) => {
-      //   if (error) {
-      //     return res.json({
-      //       isError: true,
-      //       message: "something went wrong, please try again.",
-      //     });
-      //   }
-      //   const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
-      //   // If the product already exists in the cart, return the total number of items
-      //   if (result.affectedRows > 0) {
-      //     connection.query(countCartItems, [req.user.id], (error, result) => {
-      //       if (error) {
-      //         return res.json({
-      //           isError: true,
-      //           message: "something went wrong, please try again.",
-      //         });
-      //       }
-      //       res.json({ total_items: result[0].total_items });
-      //     });
-      //   } else {
-      //     // If the product does not exist in the cart, prepare an SQL query to insert a new item
-      //     sql =
-      //       "INSERT INTO cart (user_id, demanded_quantity, productId) VALUES (?, ?, ?)";
-      //     connection.query(
-      //       sql,
-      //       [req.user.id, req.body.quantity, req.body.productId],
-      //       (error) => {
-      //         if (error) {
-      //           return res.json({
-      //             isError: true,
-      //             message: "something went wrong. Please try again.",
-      //           });
-      //         }
-      //         // Return the total number of items in the user's cart
-      //         connection.query(
-      //           countCartItems,
-      //           [req.user.id],
-      //           (error, result) => {
-      //             if (error) {
-      //               return res.json({
-      //                 isError: true,
-      //                 message: "something went wrong, please try again.",
-      //               });
-      //             }
-      //             res.json({
-      //               isError: false,
-      //               total_items: result[0].total_items,
-      //             });
-      //           }
-      //         );
-      //       }
-      //     );
-      //   }
-      // });
     }
   } catch (error) {
-    console.log(error);
     errorResponse(error, res);
   }
 };
