@@ -1,21 +1,14 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
-const connection = require("../../config/DbConnect");
 const Cart = require("../../config/Db/models/cart");
-const { parseProductImages, errorResponse } = require("../../lib/index");
-
-/**
- * Overall, the AddToCart function handles the addition of a product to a user's shopping cart,
- * ensuring that the quantity and size of the product are updated if the item already exists in the cart.
- * If the item does not exist, a new item is added to the cart. The function also returns the total number of items in the cart for the user.
- */
+const { errorResponse } = require("../../lib");
 
 //Done
 const AddToCart = async (req, res) => {
   try {
     if (req.body) {
       const { quantity, product_id } = req.body;
-      const updateResult = await Cart.updateOne(
+      const response = await Cart.updateOne(
         {
           user_id: new mongoose.Types.ObjectId(req.user._id),
           productId: new mongoose.Types.ObjectId(product_id),
@@ -23,7 +16,7 @@ const AddToCart = async (req, res) => {
         { $inc: { demanded_quantity: Number(quantity) } }
       );
 
-      if (updateResult.modifiedCount > 0) {
+      if (response.modifiedCount > 0) {
         const totalItems = await Cart.countDocuments({
           user_id: new mongoose.Types.ObjectId(req.user._id),
         });
@@ -54,72 +47,60 @@ const AddToCart = async (req, res) => {
   }
 };
 
-// Done
-const RemoveFromCart = (req, res) => {
+const FetchCartItems = async (req, res) => {
   try {
-    if (req.params.id) {
-      connection.query(
-        "DELETE FROM `cart` WHERE id = ?",
-        [req.params.id],
-        (error) => {
-          if (error) {
-            res.json({
-              isError: true,
-              message: "something went wrong please try again.",
-            });
-          } else {
-            const countCartItems = `SELECT COUNT(*) AS total_items FROM cart WHERE user_id=?`;
-            connection.query(countCartItems, [req.user.id], (error, result) => {
-              if (error) {
-                return res.json({
-                  isError: true,
-                  message: "something went wrong, please try again.",
-                });
-              }
-              res.json({ isError: false, total_items: result[0].total_items });
-            });
-          }
-        }
-      );
-    }
+    const userId = new mongoose.Types.ObjectId(req.user._id);
+    const cartItems = await Cart.aggregate([
+      {
+        $match: { user_id: userId },
+      },
+      {
+        $lookup: {
+          from: "products",
+          localField: "productId",
+          foreignField: "_id",
+          as: "productDetails",
+        },
+      },
+      {
+        $unwind: "$productDetails",
+      },
+      {
+        $project: {
+          name: "$productDetails.name",
+          price: "$productDetails.price",
+          category: "$productDetails.category",
+          images: "$productDetails.images",
+          productId: "$productDetails._id",
+          demanded_quantity: "$demanded_quantity",
+        },
+      },
+    ]);
+
+    res.json({ isError: false, payload: cartItems });
   } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
+    errorResponse(error, res);
   }
 };
 
-/**
- * Overall, the FetchCartItems function provides a way to retrieve items from a user's shopping cart,
- * ensuring that only authorized users can access their own cart items and handling potential errors gracefully.
- */
-const FetchCartItems = (req, res) => {
+// Done
+const RemoveFromCart = async (req, res) => {
   try {
-    const sql = `
-      SELECT 
-        products.name, 
-        products.price, 
-        products.category, 
-        products.images, 
-        products.id,
-        cart.id AS cartId, 
-        cart.demanded_quantity 
-      FROM 
-        cart
-      JOIN 
-        products ON cart.productId = products.id 
-      WHERE 
-        cart.user_id = ?`;
-    connection.query(sql, [req.user.id], (error, result) => {
-      if (error) {
-        return res.json({
-          isError: true,
-          message: "something went wrong please try again.",
-        });
-      }
-      res.json({ isError: false, payload: parseProductImages(result) });
-    });
+    if (req.params.id) {
+      const userId = new mongoose.Types.ObjectId(req.user._id);
+      const cartItemId = new mongoose.Types.ObjectId(req.params.id);
+
+      await Cart.deleteOne({ _id: cartItemId });
+
+      const totalItems = await Cart.countDocuments({
+        user_id: userId,
+      });
+      res.json({ isError: false, total_items: totalItems });
+    }
   } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
+    errorResponse(error, res);
   }
 };
+
 
 module.exports = { AddToCart, RemoveFromCart, FetchCartItems };

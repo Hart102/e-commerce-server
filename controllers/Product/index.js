@@ -10,6 +10,7 @@ const {
   AppWriteFilesUploader,
 } = require("../../config/appWrite/index");
 
+
 const GetAllProducts = async (req, res) => {
   try {
     const products = await Products.aggregate([
@@ -34,12 +35,12 @@ const GetAllProducts = async (req, res) => {
           images: 1,
           user_id: 1,
           category: "$categoryDetails.name",
+          category_id: "$categoryDetails._id",
           createdAt: 1,
           updatedAt: 1,
         },
       },
     ]);
-
     res.json({ isError: false, payload: products });
   } catch (error) {
     errorResponse(error, res);
@@ -118,8 +119,10 @@ const EditProduct = async (req, res) => {
         status: status.toLowerCase(),
         images: images,
       };
-      const result = await Products.updateOne({ _id: id }, update);
-
+      const result = await Products.updateOne(
+        { _id: new ObjectId(id) },
+        update
+      );
       if (result.modifiedCount > 0) {
         res.json({
           isError: false,
@@ -134,7 +137,7 @@ const EditProduct = async (req, res) => {
     };
     if (uploadImageIds !== undefined) {
       const replacedImageIds = JSON.parse(req.body.replacedImageIds);
-      const product = await Products.findById(req.body.id);
+      const product = await Products.findById(new ObjectId(req.body.id));
 
       const productImages = JSON.parse(product.images);
       const changedImages = (images) => {
@@ -161,17 +164,55 @@ const EditProduct = async (req, res) => {
   }
 };
 
-//Unused
 const GetProductById = async (req, res) => {
   try {
-    const product = await Products.findOne({
-      _id: new ObjectId(req.params.id),
-    });
-    if (!product) {
-      res.json({ isError: true, message: "Product not found." });
+    const productId = new ObjectId(req.params.id);
+    // Aggregate to find the product and its category
+    const productWithCategory = await Products.aggregate([
+      { $match: { _id: productId } },
+      {
+        $lookup: {
+          from: "categories",
+          localField: "category",
+          foreignField: "_id",
+          as: "categoryDetails",
+        },
+      },
+      {
+        $unwind: {
+          path: "$categoryDetails",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          price: 1,
+          description: 1,
+          categoryId: 1,
+          quantity: 1,
+          status: 1,
+          images: 1,
+          user_id: 1,
+          createdAt: 1,
+          category_id: "$categoryDetails._id",
+          category_name: "$categoryDetails.name",
+        },
+      },
+    ]);
+    delete productWithCategory?.categoryDetails;
+    if (productWithCategory.length === 0) {
+      res.status(404).json({ isError: true, message: "Product not found." });
       return;
     }
-    res.json({ isError: false, payload: product });
+    const product = productWithCategory[0];
+    res.json({
+      isError: false,
+      payload: {
+        product,
+      },
+    });
   } catch (error) {
     errorResponse(error, res);
   }
@@ -213,7 +254,6 @@ const GetProductsByCategory = async (req, res) => {
         $sort: { createdAt: -1 },
       },
     ]);
-
     res.json({ isError: false, payload: products });
   } catch (error) {
     errorResponse(error, res);
@@ -270,3 +310,39 @@ module.exports = {
   GetProductsByCategory,
   DeleteProduct,
 };
+
+
+// const cat = await categories.find();
+// //  console.log(cat);
+// let run = 0;
+// connection.query("SELECT * FROM products", async (error, results) => {
+//   const processedResults = results.map((result) => {
+//     const { id, createdAt, ...rest } = result;
+
+//     const matchingCategory = cat.find(
+//       (category) => category.name === result.category
+//     );
+//     const category = matchingCategory ? matchingCategory._id : "";
+
+//     let parsedImages;
+//     try {
+//       parsedImages = JSON.parse(result.images);
+//     } catch (error) {
+//       console.error("Error parsing images:", error);
+//       parsedImages = [];
+//     }
+//     run = 1;
+//     return {
+//       ...rest,
+//       user_id: "668feef2adbb471daf84f935",
+//       status: "available",
+//       category: category.toString(),
+//       images: parsedImages,
+//     };
+//   });
+
+//   if (run === 1) {
+//     const save = await Products.insertMany(processedResults);
+//     console.log(save);
+//   }
+// });

@@ -15,14 +15,14 @@ const dbConfig = {
   password: process.env.PASSWORD,
 };
 
-const connection = mysql.createConnection(dbConfig);
+// const connection = mysql.createConnection(dbConfig);
 
-connection.connect((err) => {
-  if (err) {
-    console.error("Error connecting to database:", err);
-    return;
-  }
-  console.log("Database connected successfully");
-});
+// connection.connect((err) => {
+//   if (err) {
+//     console.error("Error connecting to database:", err);
+//     return;
+//   }
+//   console.log("Database connected successfully");
+// });
 
-module.exports = connection;
+// module.exports = connection;

@@ -168,13 +168,13 @@ const FetchUserRole = async (req, res) => {
   try {
     const user_role = await Users.findOne(
       { _id: new ObjectId(req.user._id) },
-      { projection: { user_role: 1, _id: 0 } }
+      { user_role: 1, _id: 1 }
     );
     if (user_role == null) {
       res.json({ isError: false, payload: {} });
       return;
     }
-    res.json({ isError: false, payload: user_role });
+    res.json({ isError: false, payload: user_role.user_role });
   } catch (error) {
     errorResponse(error, res);
   }

@@ -3,7 +3,8 @@ const axios = require("axios");
 const connection = require("../../config/DbConnect");
 const { OrderSchema } = require("../../schema/index");
 const { initializePayment } = require("../../config/acceptPayment");
-const { parseProductImages } = require("../../lib");
+const { parseProductImages, errorResponse } = require("../../lib");
+const Order = require("../../config/Db/models/orders");
 
 const FetchUncompletedOrderByuserId = (req, res) => {
   try {
@@ -32,50 +33,80 @@ const AcceptPayment = async (req, res) => {
     if (error) {
       return res.json({ isError: true, message: error.details[0].message });
     }
+
     const amountInKobo = parseFloat(value.totalPrice);
     const response = await initializePayment({
       email: req.user.email,
       amount: amountInKobo,
       name: `${req.user.firstName} ${req.user.lastName}`,
     });
+
     if (response.error) {
       return res.json({ isError: true, message: response.error });
     }
-    let storageCount = 0;
+
     if (response.data.status === true) {
-      for (let i = 0; i < value.products.length; i++) {
-        storageCount++;
-        connection.query(
-          "INSERT INTO orders SET?",
-          {
-            user_id: req.user?.id,
-            shipping_address_id: value?.addressId,
-            product_id: value.products[i].productId,
-            demanded_quantity: value.products[i].demandedQuantity,
-            total_price: `NGN ${value.products[i].price}`,
-            transaction_reference: response.data.data.reference,
-          },
-          (error) => {
-            if (error) {
-              return res.json({
-                isError: true,
-                message: "Something went wrong. Please try again.",
-              });
-            }
-            if (storageCount == value.products.length) {
-              res.json({
-                isError: false,
-                message: "Payment accepted successfully!",
-                payment_url: response.data.data.authorization_url,
-              });
-              storageCount = 0;
-            }
-          }
-        );
-      }
+      const orders = value.products.map((product) => ({
+        user_id: req.user._id,
+        shipping_address_id: value.addressId,
+        product_id: product.productId,
+        demanded_quantity: product.demandedQuantity,
+        total_price: `NGN ${product.price}`,
+        transaction_reference: response.data.data.reference,
+      }));
+
+      console.log(orders);
+      // const response = Order.insertMany(orders)
     }
+
+    // const { error, value } = OrderSchema.validate(req.body);
+    // if (error) {
+    //   return res.json({ isError: true, message: error.details[0].message });
+    // }
+    // const amountInKobo = parseFloat(value.totalPrice);
+    // const response = await initializePayment({
+    //   email: req.user.email,
+    //   amount: amountInKobo,
+    //   name: `${req.user.firstName} ${req.user.lastName}`,
+    // });
+    // if (response.error) {
+    //   return res.json({ isError: true, message: response.error });
+    // }
+    // let storageCount = 0;
+    // if (response.data.status === true) {
+    //   for (let i = 0; i < value.products.length; i++) {
+    //     storageCount++;
+    //     connection.query(
+    //       "INSERT INTO orders SET?",
+    //       {
+    //         user_id: req.user?.id,
+    //         shipping_address_id: value?.addressId,
+    //         product_id: value.products[i].productId,
+    //         demanded_quantity: value.products[i].demandedQuantity,
+    //         total_price: `NGN ${value.products[i].price}`,
+    //         transaction_reference: response.data.data.reference,
+    //       },
+    //       (error) => {
+    //         if (error) {
+    //           return res.json({
+    //             isError: true,
+    //             message: "Something went wrong. Please try again.",
+    //           });
+    //         }
+    //         if (storageCount == value.products.length) {
+    //           res.json({
+    //             isError: false,
+    //             message: "Payment accepted successfully!",
+    //             payment_url: response.data.data.authorization_url,
+    //           });
+    //           storageCount = 0;
+    //         }
+    //       }
+    //     );
+    //   }
+    // }
   } catch (error) {
-    res.json({ isError: true, message: "internal server error" });
+    errorResponse(error, res);
   }
 };
 

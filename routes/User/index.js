@@ -13,19 +13,14 @@ const {
 } = require("../../controllers/User/index");
 const authMiddleWare = require("../../auth/authMiddleware");
 
+router.get("/", authMiddleWare, FetchUser);
 router.post("/register", UserRegisteration);
 router.post("/login", UserLogin);
 router.post("/logout", LogOut);
 router.patch("/edit-profile", authMiddleWare, EditProfile);
 router.patch("/reset-password", authMiddleWare, ResetPassword);
 router.get("/fetch-user-role", authMiddleWare, FetchUserRole);
-
 router.post("/add-address", authMiddleWare, CreateAddress);
-router.get("/get-user-and-user-address", authMiddleWare, FetchUser);
 router.delete("/delete-address/:id", authMiddleWare, DeleteAddress);
-
-
-
-
 
 module.exports = router;
