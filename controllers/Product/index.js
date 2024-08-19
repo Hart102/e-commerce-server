@@ -126,7 +126,7 @@ const EditProduct = async (req, res) => {
       if (result.modifiedCount > 0) {
         res.json({
           isError: false,
-          message: "Product edited successfully",
+          message: "Product updated successfully",
         });
       } else {
         res.json({

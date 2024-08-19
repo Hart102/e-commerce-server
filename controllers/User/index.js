@@ -95,7 +95,7 @@ const EditProfile = async (req, res) => {
     if (existing_email) {
       return res.json({
         isError: true,
-        message: "Email already in use",
+        message: "Email already in use by another user",
       });
     }
     const updateResult = await Users.updateOne(
