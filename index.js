@@ -20,7 +20,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 app.get("/", (req, res) => {
-  res.json("Welcome to the e-commerce API!");
+  res.json("Welcome to the FreshCart API!");
 });
 
 // ENDPOINTS

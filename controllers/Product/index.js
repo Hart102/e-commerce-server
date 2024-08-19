@@ -310,39 +310,3 @@ module.exports = {
   GetProductsByCategory,
   DeleteProduct,
 };
-
-
-// const cat = await categories.find();
-// //  console.log(cat);
-// let run = 0;
-// connection.query("SELECT * FROM products", async (error, results) => {
-//   const processedResults = results.map((result) => {
-//     const { id, createdAt, ...rest } = result;
-
-//     const matchingCategory = cat.find(
-//       (category) => category.name === result.category
-//     );
-//     const category = matchingCategory ? matchingCategory._id : "";
-
-//     let parsedImages;
-//     try {
-//       parsedImages = JSON.parse(result.images);
-//     } catch (error) {
-//       console.error("Error parsing images:", error);
-//       parsedImages = [];
-//     }
-//     run = 1;
-//     return {
-//       ...rest,
-//       user_id: "668feef2adbb471daf84f935",
-//       status: "available",
-//       category: category.toString(),
-//       images: parsedImages,
-//     };
-//   });
-
-//   if (run === 1) {
-//     const save = await Products.insertMany(processedResults);
-//     console.log(save);
-//   }
-// });
