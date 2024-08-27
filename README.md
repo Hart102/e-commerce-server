@@ -1,12 +1,17 @@
-1. CREATE PRODUCT ENDPOINT: the create product function handles the creation of a new product in the application,
-ensuring that the product data is validated, the images are uploaded to the Appwrite storage, and the product is inserted into the database.
- 
-2. DELETE PRODUCT ENDPOINT: handles the deletion of a product from the application,
-ensuring that the associated images are deleted from the Appwrite storage and that the product is removed from any related tables in the database.
- 
-3. GET PRODUCTS BY USER/VENDOR ID: this function provides a way to retrieve all products associated with a specific user from the database.
-It ensures that only authorized users can access their own products and handles potential errors gracefully.
- 
-4. THE GET PRODUCT BY ID: function provides a secure way to retrieve a single product by its ID from the database and return it to the client.
+# FreshCart Api
 
-5. GET BY CATEGORY: This function demonstrates how the application retrieves products based on a specific category and handles potential errors gracefully
+## Key Features:
+
+Node.js and Express.js: The codebase is built using Node.js and Express.js, a popular web application framework for JavaScript.
+MongoDB: The API uses MongoDB as the database for storing product data. It provides an object-document mapping (ODM) layer using Mongoose.
+
+The codebase provides key functionalities for managing users, products, categories, and addresses within an e-commerce application. It includes user authentication, such as registration, login, profile editing, password reset, and logout, alongside address management features.
+
+In the product management section, it supports creating, editing, retrieving, and deleting products, with provisions for handling images and associating products with categories. Similarly, category management allows for creating, editing, fetching, and deleting categories.
+
+The application also incorporates file upload functionality, particularly for product images, and handles image deletion when necessary. Schema validation ensures that user and product data meet required criteria. Additionally, centralized error handling provides consistent error responses throughout the application.
+
+
+## Error Handling:
+The API includes error handling for various scenarios, such as invalid form data, missing required fields, and database errors.
+Error responses are returned in JSON format with an "isError" field indicating whether an error occurred, and a "message" field providing a description of the error.
